@@ -385,6 +385,9 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     /* Fee method: protocol fee or split fee. */
     enum FeeMethod { ProtocolFee, SplitFee }
 
+     /* colletion状态: 上架 or 下架. */
+    enum OnlineState { Online, Offline}
+
     /* Inverse basis point. */
     uint public constant INVERSE_BASIS_POINT = 10000;
 
@@ -447,6 +450,22 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         /* Order salt, used to prevent duplicate hashes. */
         uint salt;
     }
+
+    /* An Collection*/
+    struct Collection {
+       
+        /* collection address*/
+        address addrs;
+        /* collection set price */
+        uint price;
+         /* collection start time*/
+        uint startTime;
+          /* collection end time*/
+        uint endTime;
+       /* colletion state: 0、online 1、 offline. */
+        OnlineState onlineState;
+    }
+
     
     event OrderApprovedPartOne    (bytes32 indexed hash, address exchange, address indexed maker, address taker, uint makerRelayerFee, uint takerRelayerFee, uint makerProtocolFee, uint takerProtocolFee, address indexed feeRecipient, FeeMethod feeMethod, SaleKindInterface.Side side, SaleKindInterface.SaleKind saleKind, address target);
     event OrderApprovedPartTwo    (bytes32 indexed hash, AuthenticatedProxy.HowToCall howToCall, bytes calldata, bytes replacementPattern, address staticTarget, bytes staticExtradata, address paymentToken, uint basePrice, uint extra, uint listingTime, uint expirationTime, uint salt, bool orderbookInclusionDesired);
@@ -537,6 +556,86 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
         return result;
     }
+    
+    ///colletion签名
+
+     /**
+     * address to bytes
+     */
+   function toBytes(address a) public pure returns (bytes memory b) {
+    assembly {
+        let m := mload(0x40)
+        a := and(a, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        mstore(add(m, 20), xor(0x140000000000000000000000000000000000000000, a))
+        mstore(0x40, add(m, 52))
+        b := m
+     }
+    }
+
+     /**
+     * Hash an colletion, returning the canonical colletion hash, without the message prefix
+     * colletion to hash
+     * Hash of colletion
+     */
+    function assemblyKeccak (bytes memory _input) public pure returns (bytes32 x) {
+       assembly {
+        x := keccak256(add(_input, 0x20), mload(_input))
+     }
+    }
+
+     /**
+     * Hash an colletion, returning the hash that a client must sign, including the standard message prefix
+     * colletion to hash
+     * Hash of message prefix and colletion hash per Ethereum format
+     */
+    function hashToSignCollection(address addrs)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256("\x19Ethereum Signed Message:\n32", assemblyKeccak(toBytes(addrs)));
+    }
+
+    //合集验证
+
+    function sizeOfCollection(Collection memory collection)
+        internal
+        pure
+        returns (uint)
+    {
+        return ((0x14 * 2) + (0x20 * 3) + 1);
+    }
+
+    function hashCollection(Collection memory collection)
+        internal
+        pure
+        returns (bytes32 hash)
+    {
+        /* Unfortunately abi.encodePacked doesn't work here, stack size constraints. */
+        // uint size = sizeOfCollection(collection);
+        // bytes memory array = new bytes(size);
+        // uint index;
+        // assembly {
+        //     index := add(array, 0x20)
+        // }
+        // index = ArrayUtils.unsafeWriteAddress(index, collection.addrs);
+        // index = ArrayUtils.unsafeWriteUint(index, collection.price);
+        // index = ArrayUtils.unsafeWriteUint(index, collection.startTime);
+        // index = ArrayUtils.unsafeWriteUint(index, collection.endTime);
+        // index = ArrayUtils.unsafeWriteUint8(index, uint8(collection.onlineState));
+        // assembly {
+        //     hash := keccak256(add(array, 0x20), size)
+        // }
+        return keccak256(abi.encode(collection.addrs, collection.price, collection.startTime, collection.endTime,collection.onlineState));
+    }
+   
+    function hashedToCollection(Collection memory collection)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256("\x19Ethereum Signed Message:\n32", hashCollection(collection));
+    }
 
     /**
      * Calculate size of an order struct when tightly packed
@@ -551,7 +650,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     {
         return ((0x14 * 7) + (0x20 * 9) + 4 + order.calldata.length + order.replacementPattern.length + order.staticExtradata.length);
     }
-
+   
     /**
      * @dev Hash an order, returning the canonical order hash, without the message prefix
      * @param order Order to hash
@@ -597,7 +696,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
         return hash;
     }
-
+   
     /**
      * @dev Hash an order, returning the hash that a client must sign, including the standard message prefix
      * @param order Order to hash
@@ -622,7 +721,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         returns (bytes32)
     {
         bytes32 hash = hashToSign(order);
-        require(validateOrder(hash, order, sig));
+        // require(validateOrder(hash, order, sig)); //源码fixbug
         return hash;
     }
 
@@ -672,7 +771,12 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
 
         /* Order must have not been canceled or already filled. */
-        if (cancelledOrFinalized[hash]) {
+        // if (cancelledOrFinalized[hash]) {
+        //     return false;
+        // }
+        //源码fixbug
+        bytes32 orderHash = requireValidOrder(order,sig);
+        if (cancelledOrFinalized[orderHash]) {
             return false;
         }
         
@@ -965,33 +1069,26 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         );
     }
 
-    /**
-     * @dev Atomically match two orders, ensuring validity of the match, and execute all associated state transitions. Protected against reentrancy by a contract-global lock.
-     * @param buy Buy-side order
-     * @param buySig Buy-side order signature
-     * @param sell Sell-side order
-     * @param sellSig Sell-side order signature
-     */
-    function atomicMatch(Order memory buy, Sig memory buySig, Order memory sell, Sig memory sellSig, bytes32 metadata)
+     function newAtomicMatch(Order memory buy, Order memory sell, Collection memory collection, Sig memory sig, bytes32 metadata)
         internal
         reentrancyGuard
-    {
+   {
         /* CHECKS */
       
         /* Ensure buy order validity and calculate hash if necessary. */
         bytes32 buyHash;
         if (buy.maker == msg.sender) {
-            require(validateOrderParameters(buy));
+              require(validateColletionParameters(buy, collection));
         } else {
-            buyHash = requireValidOrder(buy, buySig);
+              buyHash = requireValidOrderColletion(buy,collection,sig);
         }
 
         /* Ensure sell order validity and calculate hash if necessary. */
         bytes32 sellHash;
         if (sell.maker == msg.sender) {
-            require(validateOrderParameters(sell));
+            require(validateColletionParameters(sell, collection));
         } else {
-            sellHash = requireValidOrder(sell, sellSig);
+             sellHash = requireValidOrderColletion(sell,collection,sig);
         }
         
         /* Must be matchable. */
@@ -1060,6 +1157,59 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         emit OrdersMatched(buyHash, sellHash, sell.feeRecipient != address(0) ? sell.maker : buy.maker, sell.feeRecipient != address(0) ? buy.maker : sell.maker, price, metadata);
     }
 
+    
+    function validateColletionParameters(Order memory order,Collection memory collection)
+     internal
+      view
+        returns (bool)
+    {
+        /* Order must be targeted at this protocol version (this Exchange contract). */
+       if (order.exchange != address(this)) {
+            return false;
+        }
+
+         /* Order must possess valid collection state. */
+        if (collection.onlineState == OnlineState.Offline) {
+            return false;
+        }
+
+        //Order must possess valid time
+        if (!((collection.startTime < now) && (now < collection.endTime))) {
+           return false;
+        }
+
+        return true;
+    }
+
+    
+    function validateColletion(Order memory order,Collection memory collection,bytes32 hash, Sig memory sig)
+     internal
+     view
+        returns (bool)
+    {
+        /* collection must have valid parameters. */
+        if (!validateColletionParameters(order,collection)) {
+            return false;
+        }
+
+        /* or (b) ECDSA-signed by maker. */
+        if (ecrecover(hash, sig.v, sig.r, sig.s) == order.maker) {
+            return true;
+        }
+
+        return false;
+    }
+
+      function requireValidOrderColletion(Order memory order, Collection memory collection, Sig memory sig)
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes32 hash = hashToSign(order);
+        require(validateColletion(order, collection, hashedToCollection(collection), sig)); 
+        return hash;
+    }
+
 }
 
 contract Exchange is ExchangeCore {
@@ -1125,28 +1275,6 @@ contract Exchange is ExchangeCore {
         returns (uint)
     {
         return SaleKindInterface.calculateFinalPrice(side, saleKind, basePrice, extra, listingTime, expirationTime);
-    }
-
-    /**
-     * @dev Call hashOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
-     */
-    function hashOrder_(
-        address[7] addrs,
-        uint[9] uints,
-        FeeMethod feeMethod,
-        SaleKindInterface.Side side,
-        SaleKindInterface.SaleKind saleKind,
-        AuthenticatedProxy.HowToCall howToCall,
-        bytes calldata,
-        bytes replacementPattern,
-        bytes staticExtradata)
-        public
-        pure
-        returns (bytes32)
-    {
-        return hashOrder(
-          Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], feeMethod, side, saleKind, addrs[4], howToCall, calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8])
-        );
     }
 
     /**
@@ -1289,6 +1417,7 @@ contract Exchange is ExchangeCore {
         );
     }
 
+
     /**
      * @dev Call ordersCanMatch - Solidity ABI encoding limitation workaround, hopefully temporary.
      */
@@ -1361,32 +1490,93 @@ contract Exchange is ExchangeCore {
         );
     }
 
-    /**
-     * @dev Call atomicMatch - Solidity ABI encoding limitation workaround, hopefully temporary.
-     */
-    function atomicMatch_(
+
+    function newAtomicMatch_(
         address[14] addrs,
-        uint[18] uints,
-        uint8[8] feeMethodsSidesKindsHowToCalls,
+        uint[21] uints,
+        uint8[9] feeMethodsSidesKindsHowToCalls,
         bytes calldataBuy,
         bytes calldataSell,
         bytes replacementPatternBuy,
         bytes replacementPatternSell,
         bytes staticExtradataBuy,
         bytes staticExtradataSell,
-        uint8[2] vs,
-        bytes32[5] rssMetadata)
+        uint8[1] vs,
+        bytes32[3] rssMetadata)
         public
         payable
     {
 
-        return atomicMatch(
+        return newAtomicMatch(
           Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldataBuy, replacementPatternBuy, addrs[5], staticExtradataBuy, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]),
-          Sig(vs[0], rssMetadata[0], rssMetadata[1]),
           Order(addrs[7], addrs[8], addrs[9], uints[9], uints[10], uints[11], uints[12], addrs[10], FeeMethod(feeMethodsSidesKindsHowToCalls[4]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[5]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[6]), addrs[11], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[7]), calldataSell, replacementPatternSell, addrs[12], staticExtradataSell, ERC20(addrs[13]), uints[13], uints[14], uints[15], uints[16], uints[17]),
-          Sig(vs[1], rssMetadata[2], rssMetadata[3]),
-          rssMetadata[4]
+          Collection(addrs[11],uints[18], uints[19], uints[20], OnlineState(feeMethodsSidesKindsHowToCalls[8])),
+          Sig(vs[0], rssMetadata[0], rssMetadata[1]),
+          rssMetadata[2]
         );
+    }
+
+    function validateColletionParameters_ (
+         address[7] addrs,
+        uint[12] uints,
+        uint8[5] feeMethodsSidesKindsHowToCalls,
+        bytes calldata,
+        bytes replacementPattern,
+        bytes staticExtradata)
+        view
+        public
+        returns (bool)
+    {
+      
+         Order memory order = Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]);
+         Collection memory collection = Collection(addrs[4], uints[9], uints[10], uints[11], OnlineState(feeMethodsSidesKindsHowToCalls[4]));
+         return validateColletionParameters(
+          order,
+          collection
+        );
+    }
+
+    /**
+     * @dev Call validateOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
+     */
+    function validateColletion_ (
+        address[7] addrs,
+        uint[12] uints,
+        uint8[5] feeMethodsSidesKindsHowToCalls,
+        bytes calldata,
+        bytes replacementPattern,
+        bytes staticExtradata,
+        uint8 v,
+        bytes32 r,
+        bytes32 s)
+        view
+        public
+        returns (bool)
+    {
+
+         Order memory order = Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]);
+         Collection memory collection = Collection(addrs[4], uints[9], uints[10], uints[11], OnlineState(feeMethodsSidesKindsHowToCalls[4]));
+         return validateColletion(
+          order,
+          collection ,
+          hashedToCollection(collection),
+          Sig(v, r, s)
+        );
+    }
+
+      /**
+     * @dev Call hashOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
+     */
+    function hashCollection_(
+        address[1] addrs,
+        uint[3] uints,
+        OnlineState onlineState)
+        public
+        pure
+        returns (bytes32)
+    {
+        return hashCollection(
+         Collection(addrs[0], uints[0], uints[1], uints[2], onlineState));
     }
 
 }
