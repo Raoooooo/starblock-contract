@@ -1192,12 +1192,6 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         return false;
     }
 
-
-   
-
-     
-
-
 }
 
 contract Exchange is ExchangeCore {
@@ -1501,47 +1495,9 @@ contract Exchange is ExchangeCore {
     }
 
 
-    function newAtomicMatch_(
-        address[14] addrs,
-        uint[23] uints,
-        uint8[9] feeMethodsSidesKindsHowToCalls,
-        bytes calldataBuy,
-        bytes calldataSell,
-        bytes replacementPatternBuy,
-        bytes replacementPatternSell,
-        bytes staticExtradataBuy,
-        bytes staticExtradataSell,
-        uint8[2] vs,
-        bytes32[5] rssMetadata,
-        uint256[1] ids)
-        public
-        payable
-    {
-
-         require(validateColletion_(
-             [addrs[7], addrs[8], addrs[9], addrs[10], addrs[11], addrs[12], addrs[13], addrs[0]],
-             [uints[9], uints[10], uints[11], uints[12],uints[13], uints[14], uints[15], uints[16], uints[17],uints[18], uints[19], uints[20],uints[21], uints[22]],        
-             [feeMethodsSidesKindsHowToCalls[4],feeMethodsSidesKindsHowToCalls[5],feeMethodsSidesKindsHowToCalls[6],feeMethodsSidesKindsHowToCalls[7],
-             feeMethodsSidesKindsHowToCalls[8]],
-             calldataSell,
-             replacementPatternSell,
-             staticExtradataSell,
-             vs,
-             [rssMetadata[0], rssMetadata[1],rssMetadata[2], rssMetadata[3]],
-             ids
-         ), "validate collection is error");
-
-        
-        return newAtomicMatch(
-          Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldataBuy, replacementPatternBuy, addrs[5], staticExtradataBuy, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]),
-          Order(addrs[7], addrs[8], addrs[9], uints[9], uints[10], uints[11], uints[12], addrs[10], FeeMethod(feeMethodsSidesKindsHowToCalls[4]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[5]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[6]), addrs[11], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[7]), calldataSell, replacementPatternSell, addrs[12], staticExtradataSell, ERC20(addrs[13]), uints[13], uints[14], uints[15], uints[16], uints[17]),
-          rssMetadata[4]
-        );
-
-
-    }
-
-
+     /**
+     * @dev Call validateColletionParameters - .
+     */
     function validateColletionParameters_ (
         address[8] addrs,
         uint[14] uints,
@@ -1566,7 +1522,7 @@ contract Exchange is ExchangeCore {
     }
 
     /**
-     * @dev Call validateOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
+     * @dev Call validateColletion - Solidity ABI encoding limitation workaround, hopefully temporary.
      */
     function validateColletion_ (
         address[8] addrs,
@@ -1596,7 +1552,7 @@ contract Exchange is ExchangeCore {
     }
 
       /**
-     * @dev Call hashOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
+     * @dev Call hashCollection - Solidity ABI encoding limitation workaround, hopefully temporary.
      */
     function hashCollection_(
         address[1] addrs,
@@ -1608,6 +1564,47 @@ contract Exchange is ExchangeCore {
     {
         return hashCollection(
          Collection(addrs[0], uints[0], uints[1], uints[2], onlineState));
+    }
+
+
+    function newAtomicMatch_(
+        address[14] addrs,
+        uint[23] uints,
+        uint8[9] feeMethodsSidesKindsHowToCalls,
+        bytes calldataBuy,
+        bytes calldataSell,
+        bytes replacementPatternBuy,
+        bytes replacementPatternSell,
+        bytes staticExtradataBuy,
+        bytes staticExtradataSell,
+        uint8[2] vs,
+        bytes32[5] rssMetadata,
+        uint256[1] ids)
+        public
+        payable
+    {
+
+          /* Ensure Colletion validity */
+         require(validateColletion_(
+             [addrs[7], addrs[8], addrs[9], addrs[10], addrs[11], addrs[12], addrs[13], addrs[0]],
+             [uints[9], uints[10], uints[11], uints[12],uints[13], uints[14], uints[15], uints[16], uints[17],uints[18], uints[19], uints[20],uints[21], uints[22]],        
+             [feeMethodsSidesKindsHowToCalls[4],feeMethodsSidesKindsHowToCalls[5],feeMethodsSidesKindsHowToCalls[6],feeMethodsSidesKindsHowToCalls[7],
+             feeMethodsSidesKindsHowToCalls[8]],
+             calldataSell,
+             replacementPatternSell,
+             staticExtradataSell,
+             vs,
+             [rssMetadata[0], rssMetadata[1],rssMetadata[2], rssMetadata[3]],
+             ids
+         ), "validate collection is error");
+
+         /* nft trade. */
+        return newAtomicMatch(
+          Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldataBuy, replacementPatternBuy, addrs[5], staticExtradataBuy, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]),
+          Order(addrs[7], addrs[8], addrs[9], uints[9], uints[10], uints[11], uints[12], addrs[10], FeeMethod(feeMethodsSidesKindsHowToCalls[4]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[5]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[6]), addrs[11], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[7]), calldataSell, replacementPatternSell, addrs[12], staticExtradataSell, ERC20(addrs[13]), uints[13], uints[14], uints[15], uints[16], uints[17]),
+          rssMetadata[4]
+        );
+
     }
 
 }
