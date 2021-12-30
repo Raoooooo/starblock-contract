@@ -466,7 +466,19 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         OnlineState onlineState;
     }
 
-    
+     /* An NFT*/
+     struct NFT {
+     
+        /* token id*/
+        uint256 id;
+        /* recipient address*/
+        address recipientAddrs;
+        /* set price */
+        uint price;
+        /*  end time*/
+        uint endTime;
+    }
+
     event OrderApprovedPartOne    (bytes32 indexed hash, address exchange, address indexed maker, address taker, uint makerRelayerFee, uint takerRelayerFee, uint makerProtocolFee, uint takerProtocolFee, address indexed feeRecipient, FeeMethod feeMethod, SaleKindInterface.Side side, SaleKindInterface.SaleKind saleKind, address target);
     event OrderApprovedPartTwo    (bytes32 indexed hash, AuthenticatedProxy.HowToCall howToCall, bytes calldata, bytes replacementPattern, address staticTarget, bytes staticExtradata, address paymentToken, uint basePrice, uint extra, uint listingTime, uint expirationTime, uint salt, bool orderbookInclusionDesired);
     event OrderCancelled          (bytes32 indexed hash);
@@ -556,76 +568,40 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
         return result;
     }
-    
-    ///colletion签名
 
      /**
-     * address to bytes
+     * Hash an NFT, returning the hash that a client must sign, including the standard message prefix
+     * NFT to hash
+     * Hash of message prefix and NFT hash per Ethereum format
      */
-   function toBytes(address a) public pure returns (bytes memory b) {
-    assembly {
-        let m := mload(0x40)
-        a := and(a, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        mstore(add(m, 20), xor(0x140000000000000000000000000000000000000000, a))
-        mstore(0x40, add(m, 52))
-        b := m
-     }
-    }
 
-     /**
-     * Hash an colletion, returning the canonical colletion hash, without the message prefix
-     * colletion to hash
-     * Hash of colletion
-     */
-    function assemblyKeccak (bytes memory _input) public pure returns (bytes32 x) {
-       assembly {
-        x := keccak256(add(_input, 0x20), mload(_input))
-     }
+    function hashNFT(NFT memory nft)
+        internal
+        pure
+        returns (bytes32 hash)
+    {
+        return keccak256(abi.encode(nft.id, nft.recipientAddrs, nft.price, nft.endTime));
     }
-
+   
+    function hashedToNFT(NFT memory nft)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256("\x19Ethereum Signed Message:\n32", hashNFT(nft));
+    }
+ 
      /**
      * Hash an colletion, returning the hash that a client must sign, including the standard message prefix
      * colletion to hash
      * Hash of message prefix and colletion hash per Ethereum format
      */
-    function hashToSignCollection(address addrs)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256("\x19Ethereum Signed Message:\n32", assemblyKeccak(toBytes(addrs)));
-    }
-
-    //合集验证
-
-    function sizeOfCollection(Collection memory collection)
-        internal
-        pure
-        returns (uint)
-    {
-        return ((0x14 * 2) + (0x20 * 3) + 1);
-    }
 
     function hashCollection(Collection memory collection)
         internal
         pure
         returns (bytes32 hash)
     {
-        /* Unfortunately abi.encodePacked doesn't work here, stack size constraints. */
-        // uint size = sizeOfCollection(collection);
-        // bytes memory array = new bytes(size);
-        // uint index;
-        // assembly {
-        //     index := add(array, 0x20)
-        // }
-        // index = ArrayUtils.unsafeWriteAddress(index, collection.addrs);
-        // index = ArrayUtils.unsafeWriteUint(index, collection.price);
-        // index = ArrayUtils.unsafeWriteUint(index, collection.startTime);
-        // index = ArrayUtils.unsafeWriteUint(index, collection.endTime);
-        // index = ArrayUtils.unsafeWriteUint8(index, uint8(collection.onlineState));
-        // assembly {
-        //     hash := keccak256(add(array, 0x20), size)
-        // }
         return keccak256(abi.encode(collection.addrs, collection.price, collection.startTime, collection.endTime,collection.onlineState));
     }
    
@@ -721,7 +697,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         returns (bytes32)
     {
         bytes32 hash = hashToSign(order);
-        // require(validateOrder(hash, order, sig)); //源码fixbug
+        require(validateOrder(hash, order, sig));
         return hash;
     }
 
@@ -771,12 +747,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
 
         /* Order must have not been canceled or already filled. */
-        // if (cancelledOrFinalized[hash]) {
-        //     return false;
-        // }
-        //源码fixbug
-        bytes32 orderHash = requireValidOrder(order,sig);
-        if (cancelledOrFinalized[orderHash]) {
+        if (cancelledOrFinalized[hash]) {
             return false;
         }
         
@@ -1069,28 +1040,17 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         );
     }
 
-     function newAtomicMatch(Order memory buy, Order memory sell, Collection memory collection, Sig memory sig, bytes32 metadata)
+
+     function newAtomicMatch(Order memory buy, Order memory sell, bytes32 metadata)
         internal
         reentrancyGuard
    {
         /* CHECKS */
-      
-        /* Ensure buy order validity and calculate hash if necessary. */
-        bytes32 buyHash;
-        if (buy.maker == msg.sender) {
-              require(validateColletionParameters(buy, collection));
-        } else {
-              buyHash = requireValidOrderColletion(buy,collection,sig);
-        }
-
+    
         /* Ensure sell order validity and calculate hash if necessary. */
-        bytes32 sellHash;
-        if (sell.maker == msg.sender) {
-            require(validateColletionParameters(sell, collection));
-        } else {
-             sellHash = requireValidOrderColletion(sell,collection,sig);
-        }
-        
+        bytes32 buyHash = hashToSign(buy);
+        bytes32 sellHash = hashToSign(sell);
+
         /* Must be matchable. */
         require(ordersCanMatch(buy, sell));
 
@@ -1158,7 +1118,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     }
 
     
-    function validateColletionParameters(Order memory order,Collection memory collection)
+    function validateColletionParameters(Order memory order, Collection memory collection, NFT memory nft)
      internal
       view
         returns (bool)
@@ -1168,47 +1128,75 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
             return false;
         }
 
-         /* Order must possess valid collection state. */
+        /* must possess collection state. */
         if (collection.onlineState == OnlineState.Offline) {
             return false;
         }
 
-        //Order must possess valid time
-        if (!((collection.startTime < now) && (now < collection.endTime))) {
+        /* must possess valid collection time. */
+        if (!((collection.startTime < now) && (collection.endTime == 0 || now < collection.endTime))) {
            return false;
         }
 
+        /* nft is exist */
+        if (nft.recipientAddrs != address(0)) {
+
+              /* must possess valid nft time */
+            if (!((nft.endTime == 0 || now < nft.endTime) && (nft.endTime <= collection.endTime))) {
+                 return false;                       
+            }
+
+            /* must possess valid nft price */  
+            if (nft.price > collection.price) {
+                return false;
+            }
+        }else {
+            
+            /* must possess valid collection price */  
+            if (order.basePrice <= collection.price) {
+              return false;
+            }
+        }
         return true;
     }
 
     
-    function validateColletion(Order memory order,Collection memory collection,bytes32 hash, Sig memory sig)
+    function validateColletion(Order memory order, Collection memory collection, NFT memory nft, Sig memory collectionSig, Sig memory nftSig)
      internal
      view
         returns (bool)
     {
         /* collection must have valid parameters. */
-        if (!validateColletionParameters(order,collection)) {
+        if (!validateColletionParameters(order,collection,nft)) {
             return false;
         }
 
-        /* or (b) ECDSA-signed by maker. */
-        if (ecrecover(hash, sig.v, sig.r, sig.s) == order.maker) {
-            return true;
-        }
+         /* nft is exist */
+        if ((nft.recipientAddrs != address(0)) && nftSig.v > 0) {
+             /* order ECDSA-signed is exist */
+            bool ECDSACollection = ecrecover(hashedToCollection(collection), collectionSig.v, collectionSig.r, collectionSig.s) == order.maker;
+            bool ECDSANFT = ecrecover(hashedToNFT(nft), nftSig.v, nftSig.r, nftSig.s) == order.maker;
+
+            if (ECDSACollection && ECDSANFT) {
+                return true;
+            } 
+
+        }else {
+         
+         /* Collection ECDSA-signed by maker. */
+           if (ecrecover(hashedToCollection(collection), collectionSig.v, collectionSig.r, collectionSig.s) == order.maker) {
+              return true;
+            }
+         }
 
         return false;
     }
 
-      function requireValidOrderColletion(Order memory order, Collection memory collection, Sig memory sig)
-        internal
-        view
-        returns (bytes32)
-    {
-        bytes32 hash = hashToSign(order);
-        require(validateColletion(order, collection, hashedToCollection(collection), sig)); 
-        return hash;
-    }
+
+   
+
+     
+
 
 }
 
@@ -1275,6 +1263,28 @@ contract Exchange is ExchangeCore {
         returns (uint)
     {
         return SaleKindInterface.calculateFinalPrice(side, saleKind, basePrice, extra, listingTime, expirationTime);
+    }
+
+     /**
+     * @dev Call hashOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
+     */
+    function hashOrder_(
+        address[7] addrs,
+        uint[9] uints,
+        FeeMethod feeMethod,
+        SaleKindInterface.Side side,
+        SaleKindInterface.SaleKind saleKind,
+        AuthenticatedProxy.HowToCall howToCall,
+        bytes calldata,
+        bytes replacementPattern,
+        bytes staticExtradata)
+        public
+        pure
+        returns (bytes32)
+    {
+        return hashOrder(
+          Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], feeMethod, side, saleKind, addrs[4], howToCall, calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8])
+        );
     }
 
     /**
@@ -1493,7 +1503,7 @@ contract Exchange is ExchangeCore {
 
     function newAtomicMatch_(
         address[14] addrs,
-        uint[21] uints,
+        uint[23] uints,
         uint8[9] feeMethodsSidesKindsHowToCalls,
         bytes calldataBuy,
         bytes calldataSell,
@@ -1501,28 +1511,45 @@ contract Exchange is ExchangeCore {
         bytes replacementPatternSell,
         bytes staticExtradataBuy,
         bytes staticExtradataSell,
-        uint8[1] vs,
-        bytes32[3] rssMetadata)
+        uint8[2] vs,
+        bytes32[5] rssMetadata,
+        uint256[1] ids)
         public
         payable
     {
 
+         require(validateColletion_(
+             [addrs[7], addrs[8], addrs[9], addrs[10], addrs[11], addrs[12], addrs[13], addrs[0]],
+             [uints[9], uints[10], uints[11], uints[12],uints[13], uints[14], uints[15], uints[16], uints[17],uints[18], uints[19], uints[20],uints[21], uints[22]],        
+             [feeMethodsSidesKindsHowToCalls[4],feeMethodsSidesKindsHowToCalls[5],feeMethodsSidesKindsHowToCalls[6],feeMethodsSidesKindsHowToCalls[7],
+             feeMethodsSidesKindsHowToCalls[8]],
+             calldataSell,
+             replacementPatternSell,
+             staticExtradataSell,
+             vs,
+             [rssMetadata[0], rssMetadata[1],rssMetadata[2], rssMetadata[3]],
+             ids
+         ), "validate collection is error");
+
+        
         return newAtomicMatch(
           Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldataBuy, replacementPatternBuy, addrs[5], staticExtradataBuy, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]),
           Order(addrs[7], addrs[8], addrs[9], uints[9], uints[10], uints[11], uints[12], addrs[10], FeeMethod(feeMethodsSidesKindsHowToCalls[4]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[5]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[6]), addrs[11], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[7]), calldataSell, replacementPatternSell, addrs[12], staticExtradataSell, ERC20(addrs[13]), uints[13], uints[14], uints[15], uints[16], uints[17]),
-          Collection(addrs[11],uints[18], uints[19], uints[20], OnlineState(feeMethodsSidesKindsHowToCalls[8])),
-          Sig(vs[0], rssMetadata[0], rssMetadata[1]),
-          rssMetadata[2]
+          rssMetadata[4]
         );
+
+
     }
 
+
     function validateColletionParameters_ (
-         address[7] addrs,
-        uint[12] uints,
+        address[8] addrs,
+        uint[14] uints,
         uint8[5] feeMethodsSidesKindsHowToCalls,
         bytes calldata,
         bytes replacementPattern,
-        bytes staticExtradata)
+        bytes staticExtradata,
+        uint256[1] ids)
         view
         public
         returns (bool)
@@ -1530,9 +1557,11 @@ contract Exchange is ExchangeCore {
       
          Order memory order = Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]);
          Collection memory collection = Collection(addrs[4], uints[9], uints[10], uints[11], OnlineState(feeMethodsSidesKindsHowToCalls[4]));
+         NFT memory nft = NFT(ids[0], addrs[7], uints[12], uints[13]);
          return validateColletionParameters(
           order,
-          collection
+          collection,
+          nft
         );
     }
 
@@ -1540,15 +1569,15 @@ contract Exchange is ExchangeCore {
      * @dev Call validateOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
      */
     function validateColletion_ (
-        address[7] addrs,
-        uint[12] uints,
+        address[8] addrs,
+        uint[14] uints,
         uint8[5] feeMethodsSidesKindsHowToCalls,
         bytes calldata,
         bytes replacementPattern,
         bytes staticExtradata,
-        uint8 v,
-        bytes32 r,
-        bytes32 s)
+        uint8[2] vs,
+        bytes32[4] rssMetadata,
+        uint256[1] ids)
         view
         public
         returns (bool)
@@ -1556,11 +1585,13 @@ contract Exchange is ExchangeCore {
 
          Order memory order = Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]);
          Collection memory collection = Collection(addrs[4], uints[9], uints[10], uints[11], OnlineState(feeMethodsSidesKindsHowToCalls[4]));
+         NFT memory nft = NFT(ids[0], addrs[7], uints[12], uints[13]);
          return validateColletion(
           order,
-          collection ,
-          hashedToCollection(collection),
-          Sig(v, r, s)
+          collection,
+          nft,
+          Sig(vs[0], rssMetadata[0], rssMetadata[1]),
+          Sig(vs[1], rssMetadata[2], rssMetadata[3])
         );
     }
 
