@@ -1118,7 +1118,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     }
 
     
-    function validateColletionParameters(Order memory order, Collection memory collection, NFT memory nft)
+    function validateColletionParameters(Order memory order, Collection memory collection, NFT memory nft, Sig memory nftSig)
      internal
       view
         returns (bool)
@@ -1139,7 +1139,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
 
         /* nft is exist */
-        if (nft.recipientAddrs != address(0)) {
+        if (nft.recipientAddrs != address(0) && nftSig.v > 0) {
 
               /* must possess valid nft time */
             if (!((nft.endTime == 0 || now < nft.endTime) && (nft.endTime <= collection.endTime))) {
@@ -1167,7 +1167,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         returns (bool)
     {
         /* collection must have valid parameters. */
-        if (!validateColletionParameters(order,collection,nft)) {
+        if (!validateColletionParameters(order,collection,nft,nftSig)) {
             return false;
         }
 
@@ -1191,7 +1191,6 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
 
         return false;
     }
-
 }
 
 contract Exchange is ExchangeCore {
@@ -1278,79 +1277,6 @@ contract Exchange is ExchangeCore {
     {
         return hashOrder(
           Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], feeMethod, side, saleKind, addrs[4], howToCall, calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8])
-        );
-    }
-
-    /**
-     * @dev Call hashToSign - Solidity ABI encoding limitation workaround, hopefully temporary.
-     */
-    function hashToSign_(
-        address[7] addrs,
-        uint[9] uints,
-        FeeMethod feeMethod,
-        SaleKindInterface.Side side,
-        SaleKindInterface.SaleKind saleKind,
-        AuthenticatedProxy.HowToCall howToCall,
-        bytes calldata,
-        bytes replacementPattern,
-        bytes staticExtradata)
-        public
-        pure
-        returns (bytes32)
-    { 
-        return hashToSign(
-          Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], feeMethod, side, saleKind, addrs[4], howToCall, calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8])
-        );
-    }
-
-    /**
-     * @dev Call validateOrderParameters - Solidity ABI encoding limitation workaround, hopefully temporary.
-     */
-    function validateOrderParameters_ (
-        address[7] addrs,
-        uint[9] uints,
-        FeeMethod feeMethod,
-        SaleKindInterface.Side side,
-        SaleKindInterface.SaleKind saleKind,
-        AuthenticatedProxy.HowToCall howToCall,
-        bytes calldata,
-        bytes replacementPattern,
-        bytes staticExtradata)
-        view
-        public
-        returns (bool)
-    {
-        Order memory order = Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], feeMethod, side, saleKind, addrs[4], howToCall, calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]);
-        return validateOrderParameters(
-          order
-        );
-    }
-
-    /**
-     * @dev Call validateOrder - Solidity ABI encoding limitation workaround, hopefully temporary.
-     */
-    function validateOrder_ (
-        address[7] addrs,
-        uint[9] uints,
-        FeeMethod feeMethod,
-        SaleKindInterface.Side side,
-        SaleKindInterface.SaleKind saleKind,
-        AuthenticatedProxy.HowToCall howToCall,
-        bytes calldata,
-        bytes replacementPattern,
-        bytes staticExtradata,
-        uint8 v,
-        bytes32 r,
-        bytes32 s)
-        view
-        public
-        returns (bool)
-    {
-        Order memory order = Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], feeMethod, side, saleKind, addrs[4], howToCall, calldata, replacementPattern, addrs[5], staticExtradata, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]);
-        return validateOrder(
-          hashToSign(order),
-          order,
-          Sig(v, r, s)
         );
     }
 
@@ -1505,6 +1431,8 @@ contract Exchange is ExchangeCore {
         bytes calldata,
         bytes replacementPattern,
         bytes staticExtradata,
+        uint8[1] vs,
+        bytes32[2] rssMetadata,
         uint256[1] ids)
         view
         public
@@ -1517,7 +1445,8 @@ contract Exchange is ExchangeCore {
          return validateColletionParameters(
           order,
           collection,
-          nft
+          nft,
+          Sig(vs[0], rssMetadata[0], rssMetadata[1])
         );
     }
 
@@ -1566,6 +1495,18 @@ contract Exchange is ExchangeCore {
          Collection(addrs[0], uints[0], uints[1], uints[2], onlineState));
     }
 
+    function hashNFT_(
+     address[1] addrs,
+     uint[2] uints,
+     uint256[1] ids)
+     public
+     pure
+     returns (bytes32)
+    {
+      return hashNFT(
+       NFT(ids[0], addrs[0], uints[0], uints[1]));
+    }
+
 
     function newAtomicMatch_(
         address[14] addrs,
@@ -1586,7 +1527,7 @@ contract Exchange is ExchangeCore {
 
           /* Ensure Colletion validity */
          require(validateColletion_(
-             [addrs[7], addrs[8], addrs[9], addrs[10], addrs[11], addrs[12], addrs[13], addrs[0]],
+             [addrs[7], addrs[8], addrs[9], addrs[10], addrs[11], addrs[12], addrs[13], addrs[1]],
              [uints[9], uints[10], uints[11], uints[12],uints[13], uints[14], uints[15], uints[16], uints[17],uints[18], uints[19], uints[20],uints[21], uints[22]],        
              [feeMethodsSidesKindsHowToCalls[4],feeMethodsSidesKindsHowToCalls[5],feeMethodsSidesKindsHowToCalls[6],feeMethodsSidesKindsHowToCalls[7],
              feeMethodsSidesKindsHowToCalls[8]],
@@ -1606,7 +1547,6 @@ contract Exchange is ExchangeCore {
         );
 
     }
-
 }
 
 contract WyvernExchange is Exchange {
