@@ -1,3 +1,76 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.5.0;
+
+library Strings {
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` representation.
+     */
+    function toString(uint256 value) internal pure returns (string memory) {
+        // Inspired by OraclizeAPI's implementation - MIT licence
+        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        uint256 index = digits - 1;
+        temp = value;
+        while (temp != 0) {
+            buffer[index--] = bytes1(uint8(48 + temp % 10));
+            temp /= 10;
+        }
+        return string(buffer);
+    }
+}
+
+
+pragma solidity ^0.5.0;
+
+/**
+ * @title Counters
+ * @author Matt Condon (@shrugs)
+ * @dev Provides counters that can only be incremented, decremented or reset. This can be used e.g. to track the number
+ * of elements in a mapping, issuing ERC721 ids, or counting request ids.
+ *
+ * Include with `using Counters for Counters.Counter;`
+ */
+library Counters {
+
+    using SafeMath for uint256;
+    struct Counter {
+        // This variable should never be directly accessed by users of the library: interactions must be restricted to
+        // the library's function. As of Solidity v0.5.2, this cannot be enforced, though there is a proposal to add
+        // this feature: see https://github.com/ethereum/solidity/issues/4637
+        uint256 _value; // default: 0
+    }
+
+    function current(Counter storage counter) internal view returns (uint256) {
+        return counter._value;
+    }
+
+    function increment(Counter storage counter) internal {
+        counter._value += 1;
+    }
+
+    function decrement(Counter storage counter) internal {
+        uint256 value = counter._value;
+        require(value > 0, "Counter: decrement overflow");
+        counter._value = value - 1;
+    }
+
+    function reset(Counter storage counter) internal {
+        counter._value = 0;
+    }
+}
+
+
 /**
  *Submitted for verification at Etherscan.io on 2021-03-07
 */
@@ -1034,6 +1107,10 @@ pragma solidity ^0.5.2;
  * AssetContract - A contract for easily creating non-fungible assets on OpenSea.
  */
 contract AssetContract is ERC1155Tradable {
+
+    using SafeMath for uint256;
+    using Strings for uint256;
+
     event URI(string _value, uint256 indexed _id);
 
     uint256 constant TOKEN_SUPPLY_CAP = 1;
@@ -1042,6 +1119,11 @@ contract AssetContract is ERC1155Tradable {
 
     // Optional mapping for token URIs
     mapping(uint256 => string) private _tokenURI;
+
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIdTracker;
+    /* uuid mapping for id. */
+    mapping(uint256 => uint256) public uuidMapId;
 
     constructor(
         string memory _name,
@@ -1080,7 +1162,7 @@ contract AssetContract is ERC1155Tradable {
         if (bytes(tokenUri).length != 0) {
             return tokenUri;
         }
-        return templateURI;
+        return string(abi.encodePacked(templateURI, _id.toString()));
     }
 
     function balanceOf(address _owner, uint256 _id)
@@ -1203,226 +1285,45 @@ contract AssetContract is ERC1155Tradable {
         }
     }
 
+
     function _setURI(uint256 _id, string memory _uri) internal {
         _tokenURI[_id] = _uri;
         emit URI(_uri, _id);
     }
-}
 
-// File: contracts/TokenIdentifiers.sol
-
-pragma solidity ^0.5.2;
-
-
-/*
-  DESIGN NOTES:
-  Token ids are a concatenation of:
- * creator: hex address of the creator of the token. 160 bits
- * index: Index for this token (the regular ID), up to 2^56 - 1. 56 bits
- * supply: Supply cap for this token, up to 2^40 - 1 (1 trillion).  40 bits
-
-*/
-/**
- * @title TokenIdentifiers
- * support for authentication and metadata for token ids
- */
-library TokenIdentifiers {
-    using SafeMath for uint256;
-
-    uint8 constant ADDRESS_BITS = 160;
-    uint8 constant INDEX_BITS = 56;
-    uint8 constant SUPPLY_BITS = 40;
-
-    uint256 constant SUPPLY_MASK = (uint256(1) << SUPPLY_BITS) - 1;
-    uint256 constant INDEX_MASK = ((uint256(1) << INDEX_BITS) - 1) ^
-        SUPPLY_MASK;
-
-    function tokenMaxSupply(uint256 _id) internal pure returns (uint256) {
-        return _id & SUPPLY_MASK;
-    }
-
-    function tokenIndex(uint256 _id) internal pure returns (uint256) {
-        return _id & INDEX_MASK;
-    }
-
-    function tokenCreator(uint256 _id) internal pure returns (address) {
-        return address(_id >> (INDEX_BITS + SUPPLY_BITS));
-    }
-}
-
-// File: contracts/AssetContractShared.sol
-
-pragma solidity ^0.5.2;
-
-
-
-
-/**
- * @title AssetContractShared
- * OpenSea shared asset contract - A contract for easily creating custom assets on OpenSea
- */
-contract AssetContractShared is AssetContract, ReentrancyGuard {
-    mapping(address => bool) public sharedProxyAddresses;
-    using SafeMath for uint256;
-    using TokenIdentifiers for uint256;
-
-    event CreatorChanged(uint256 indexed _id, address indexed _creator);
-
-    mapping(uint256 => address) internal _creatorOverride;
-
-    /**
-     * @dev Require msg.sender to be the creator of the token id
-     */
-    modifier creatorOnly(uint256 _id) {
-        require(
-            _isCreatorOrProxy(_id, _msgSender()),
-            "AssetContractShared#creatorOnly: ONLY_CREATOR_ALLOWED"
-        );
-        _;
-    }
-
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _proxyRegistryAddress,
-        string memory _templateURI
-    )
-        public
-        AssetContract(_name, _symbol, _proxyRegistryAddress, _templateURI)
-    {}
-
-    /**
-     * @dev Allows owner to change the proxy registry
-     */
-    function setProxyRegistryAddress(address _address) public onlyOwner {
-        proxyRegistryAddress = _address;
-    }
-
-    /**
-     * @dev Allows owner to add a shared proxy address
-     */
-    function addSharedProxyAddress(address _address) public onlyOwner {
-        sharedProxyAddresses[_address] = true;
-    }
-
-    /**
-     * @dev Allows owner to remove a shared proxy address
-     */
-    function removeSharedProxyAddress(address _address) public onlyOwner {
-        delete sharedProxyAddresses[_address];
-    }
-
-    function mint(
+   function newsafeBatchTransferFrom(
+        address _from,
         address _to,
-        uint256 _id,
-        uint256 _quantity,
+        uint256[] memory _uuids,
+        uint256[] memory _amounts,
         bytes memory _data
-    ) public nonReentrant() {
-        _requireMintable(_msgSender(), _id, _quantity);
-        _mint(_to, _id, _quantity, _data);
-    }
-
-    function batchMint(
-        address _to,
-        uint256[] memory _ids,
-        uint256[] memory _quantities,
-        bytes memory _data
-    ) public nonReentrant() {
-        for (uint256 i = 0; i < _ids.length; i++) {
-            _requireMintable(_msgSender(), _ids[i], _quantities[i]);
-        }
-        _batchMint(_to, _ids, _quantities, _data);
-    }
-
-    /////////////////////////////////
-    // CONVENIENCE CREATOR METHODS //
-    /////////////////////////////////
-
-    /**
-     * @dev Will update the URI for the token
-     * @param _id The token ID to update. msg.sender must be its creator.
-     * @param _uri New URI for the token.
-     */
-    function setURI(uint256 _id, string memory _uri) public creatorOnly(_id) {
-        _setURI(_id, _uri);
-    }
-
-    /**
-     * @dev Change the creator address for given token
-     * @param _to   Address of the new creator
-     * @param _id  Token IDs to change creator of
-     */
-    function setCreator(uint256 _id, address _to) public creatorOnly(_id) {
+    ) public {
         require(
-            _to != address(0),
-            "AssetContractShared#setCreator: INVALID_ADDRESS."
+            _uuids.length == _amounts.length,
+            "AssetContractShared#safeBatchTransferFrom: INVALID_ARRAYS_LENGTH"
         );
-        _creatorOverride[_id] = _to;
-        emit CreatorChanged(_id, _to);
-    }
 
-    /**
-     * @dev Get the creator for a token
-     * @param _id   The token id to look up
-     */
-    function creator(uint256 _id) public view returns (address) {
-        if (_creatorOverride[_id] != address(0)) {
-            return _creatorOverride[_id];
-        } else {
-            return _id.tokenCreator();
+        for (uint256 i = 0; i < _uuids.length; i++) {
+
+            /* create id */
+            uint256 id = _totalSupply();
+            _tokenIdTracker.increment();
+
+           /* map uuid for id */
+            uint256 uuid = _uuids[i]; 
+            uuidMapId[uuid] = id;
+
+            safeTransferFrom(_from, _to, id, _amounts[i], _data);
         }
+     }
+
+    function _totalSupply() internal view returns (uint) {
+        return _tokenIdTracker.current();
     }
 
-    /**
-     * @dev Get the maximum supply for a token
-     * @param _id   The token id to look up
-     */
-    function maxSupply(uint256 _id) public pure returns (uint256) {
-        return _id.tokenMaxSupply();
+    function totalMint() public view returns (uint256) {
+        return _totalSupply();
     }
 
-    // Override ERC1155Tradable for birth events
-    function _origin(uint256 _id) internal view returns (address) {
-        return _id.tokenCreator();
-    }
-
-    function _requireMintable(
-        address _address,
-        uint256 _id,
-        uint256 _amount
-    ) internal view {
-        require(
-            _isCreatorOrProxy(_id, _address),
-            "AssetContractShared#_requireMintable: ONLY_CREATOR_ALLOWED"
-        );
-        require(
-            _remainingSupply(_id) >= _amount,
-            "AssetContractShared#_requireMintable: SUPPLY_EXCEEDED"
-        );
-    }
-
-    function _remainingSupply(uint256 _id) internal view returns (uint256) {
-        return maxSupply(_id).sub(totalSupply(_id));
-    }
-
-    function _isCreatorOrProxy(uint256 _id, address _address)
-        internal
-        view
-        returns (bool)
-    {
-        address creator_ = creator(_id);
-        return creator_ == _address || _isProxyForUser(creator_, _address);
-    }
-
-    // Overrides ERC1155Tradable to allow a shared proxy address
-    function _isProxyForUser(address _user, address _address)
-        internal
-        view
-        returns (bool)
-    {
-        if (sharedProxyAddresses[_address]) {
-            return true;
-        }
-        return super._isProxyForUser(_user, _address);
-    }
 }
+
