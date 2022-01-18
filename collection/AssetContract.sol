@@ -1306,9 +1306,9 @@ contract AssetContract is ERC1155Tradable {
         for (uint256 i = 0; i < _uuids.length; i++) {
 
             /* create id */
-            uint256 id = _totalSupply();
             _tokenIdTracker.increment();
-
+            uint256 id = _totalSupply();
+            
            /* map uuid for id */
             uint256 uuid = _uuids[i]; 
             uuidMapId[uuid] = id;
