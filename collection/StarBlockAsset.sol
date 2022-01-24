@@ -1223,9 +1223,8 @@ contract ProxyRegistry {
 }
 
 /**
- * @title ERC1155Tradable
- * ERC1155Tradable - ERC1155 contract that whitelists an operator address, has create and mint functionality, and supports useful standards from OpenZeppelin,
-  like exists(), name(), symbol(), and totalSupply()
+ * @title ERC721Tradable
+ * ERC721Tradable - ERC721 contract that whitelists an operator address
  */
 contract ERC721Tradable is ERC721Enumerable, Ownable {
     // Proxy registry address
