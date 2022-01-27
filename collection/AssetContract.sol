@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.5.0;
 
@@ -1196,22 +1196,6 @@ contract AssetContract is ERC1155Tradable {
         }
     }
 
-    function safeBatchTransferFrom(
-        address _from,
-        address _to,
-        uint256[] memory _ids,
-        uint256[] memory _amounts,
-        bytes memory _data
-    ) public {
-        require(
-            _ids.length == _amounts.length,
-            "AssetContractShared#safeBatchTransferFrom: INVALID_ARRAYS_LENGTH"
-        );
-        for (uint256 i = 0; i < _ids.length; i++) {
-            safeTransferFrom(_from, _to, _ids[i], _amounts[i], _data);
-        }
-    }
-
     function mint(
         address _to,
         uint256 _id,
@@ -1223,21 +1207,6 @@ contract AssetContract is ERC1155Tradable {
             "AssetContract#mint: QUANTITY_EXCEEDS_TOKEN_SUPPLY_CAP"
         );
         _mint(_to, _id, _quantity, _data);
-    }
-
-    function batchMint(
-        address _to,
-        uint256[] memory _ids,
-        uint256[] memory _quantities,
-        bytes memory _data
-    ) public onlyOwner {
-        for (uint256 i = 0; i < _ids.length; i++) {
-            require(
-                _quantities[i] <= _remainingSupply(_ids[i]),
-                "AssetContract#batchMint: QUANTITY_EXCEEDS_TOKEN_SUPPLY_CAP"
-            );
-        }
-        _batchMint(_to, _ids, _quantities, _data);
     }
 
     function _mint(
@@ -1271,36 +1240,21 @@ contract AssetContract is ERC1155Tradable {
         return owner();
     }
 
-    function _batchMint(
-        address _to,
-        uint256[] memory _ids,
-        uint256[] memory _quantities,
-        bytes memory _data
-    ) internal {
-        super._batchMint(_to, _ids, _quantities, _data);
-        if (_data.length > 1) {
-            for (uint256 i = 0; i < _ids.length; i++) {
-                _setURI(_ids[i], string(_data));
-            }
-        }
-    }
-
-
     function _setURI(uint256 _id, string memory _uri) internal {
         _tokenURI[_id] = _uri;
         emit URI(_uri, _id);
     }
 
-   function newsafeBatchTransferFrom(
+   function mintTransferFromUUIDS(
         address _from,
         address _to,
         uint256[] memory _uuids,
         uint256[] memory _amounts,
         bytes memory _data
-    ) public {
+    ) public onlyOwner {
         require(
             _uuids.length == _amounts.length,
-            "AssetContractShared#safeBatchTransferFrom: INVALID_ARRAYS_LENGTH"
+            "AssetContract#mintTransferFromUUIDS: INVALID_ARRAYS_LENGTH"
         );
 
         for (uint256 i = 0; i < _uuids.length; i++) {
@@ -1311,9 +1265,17 @@ contract AssetContract is ERC1155Tradable {
             
            /* map uuid for id */
             uint256 uuid = _uuids[i]; 
+
+            require(
+              uuidMapId[uuid] != id, "AssetContractShared#mintTransferFromUUIDS:token id is exist"
+            );
             uuidMapId[uuid] = id;
 
-            safeTransferFrom(_from, _to, id, _amounts[i], _data);
+            uint256 mintedBalance = super.balanceOf(_from, id);
+             if (mintedBalance < _amounts[i]) {
+            // Only mint what _from doesn't already have
+              mint(_to, id, _amounts[i].sub(mintedBalance), _data);
+           }
         }
      }
 
