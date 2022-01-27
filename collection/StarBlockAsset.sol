@@ -1229,8 +1229,6 @@ contract ProxyRegistry {
 contract ERC721Tradable is ERC721Enumerable, Ownable {
     // Proxy registry address
     address public proxyRegistryAddress;
-   
-    mapping(uint256 => uint256) private _supply;
 
     constructor(
         string memory _name,
@@ -1294,7 +1292,7 @@ contract ERC721Tradable is ERC721Enumerable, Ownable {
  */
 contract StarBlockAsset is ERC721Tradable {
 
-    string _baseTokenURI;
+    string private _baseTokenURI;
 
     /* uuid mapping for id. */
     mapping(uint256 => uint256) public uuidMapTokenId;
