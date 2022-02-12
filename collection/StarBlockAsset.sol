@@ -1191,7 +1191,7 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract StarBlockAsset is Ownable, ERC721A, ReentrancyGuard {
+contract StarBlockAsset is Ownable, ERC721A {
 
   string private _baseTokenURI;
 
