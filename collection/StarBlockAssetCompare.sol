@@ -558,9 +558,6 @@ contract ERC721A is
 
   uint256 private currentIndex = 0;
 
-  uint256 internal immutable collectionSize;
-  uint256 internal immutable maxBatchSize;
-
   // Token name
   string private _name;
 
@@ -587,19 +584,10 @@ contract ERC721A is
    */
   constructor(
     string memory name_,
-    string memory symbol_,
-    uint256 maxBatchSize_,
-    uint256 collectionSize_
+    string memory symbol_
   ) {
-    require(
-      collectionSize_ > 0,
-      "ERC721A: collection must have a nonzero supply"
-    );
-    require(maxBatchSize_ > 0, "ERC721A: max batch size must be nonzero");
     _name = name_;
     _symbol = symbol_;
-    maxBatchSize = maxBatchSize_;
-    collectionSize = collectionSize_;
   }
 
   /**
@@ -613,7 +601,7 @@ contract ERC721A is
    * @dev See {IERC721Enumerable-tokenByIndex}.
    */
   function tokenByIndex(uint256 index) public view override returns (uint256) {
-    require(index < totalSupply(), "ERC721A: global index out of bounds");
+    require(index <= totalSupply() && index > 0, "ERC721A: global index out of bounds");
     return index;
   }
 
@@ -687,12 +675,7 @@ contract ERC721A is
   {
     require(_exists(tokenId), "ERC721A: owner query for nonexistent token");
 
-    uint256 lowestTokenToCheck;
-    if (tokenId >= maxBatchSize) {
-      lowestTokenToCheck = tokenId - maxBatchSize + 1;
-    }
-
-    for (uint256 curr = tokenId; curr >= lowestTokenToCheck; curr--) {
+    for (uint256 curr = tokenId; curr >= 0; curr--) {
       TokenOwnership memory ownership = _ownerships[curr];
       if (ownership.addr != address(0)) {
         return ownership;
@@ -734,7 +717,7 @@ contract ERC721A is
     returns (string memory)
   {
     require(
-      _exists(tokenId),
+      _exists(tokenId) && tokenId > 0,
       "ERC721Metadata: URI query for nonexistent token"
     );
 
@@ -847,7 +830,7 @@ contract ERC721A is
    * Tokens start existing when they are minted (`_mint`),
    */
   function _exists(uint256 tokenId) internal view returns (bool) {
-    return tokenId < currentIndex;
+    return tokenId <= currentIndex;
   }
 
   function _safeMint(address to, uint256 quantity) internal {
@@ -870,11 +853,13 @@ contract ERC721A is
     uint256 quantity,
     bytes memory _data
   ) internal {
-    uint256 startTokenId = currentIndex;
+    // uint256 startTokenId = currentIndex;
+    uint256 startTokenId = currentIndex + 1;
     require(to != address(0), "ERC721A: mint to the zero address");
     // We know if the first token in the batch doesn't exist, the other ones don't as well, because of serial ordering.
     require(!_exists(startTokenId), "ERC721A: token already minted");
-    require(quantity <= maxBatchSize, "ERC721A: quantity to mint too high");
+    // require(quantity <= maxBatchSize, "ERC721A: quantity to mint too high");
+    require(quantity > 0, "ERC721A: quantity must be greater than zero");
 
     _beforeTokenTransfers(address(0), to, startTokenId, quantity);
 
@@ -896,7 +881,8 @@ contract ERC721A is
       updatedIndex++;
     }
 
-    currentIndex = updatedIndex;
+    // currentIndex = updatedIndex;
+    currentIndex += quantity;
     _afterTokenTransfers(address(0), to, startTokenId, quantity);
   }
 
@@ -980,9 +966,9 @@ contract ERC721A is
     uint256 oldNextOwnerToSet = nextOwnerToExplicitlySet;
     require(quantity > 0, "quantity must be nonzero");
     uint256 endIndex = oldNextOwnerToSet + quantity - 1;
-    if (endIndex > collectionSize - 1) {
-      endIndex = collectionSize - 1;
-    }
+    // if (endIndex > collectionSize - 1) {
+    //   endIndex = collectionSize - 1;
+    // }
     // We know if the last one in the group exists, all in the group exist, due to serial ordering.
     require(_exists(endIndex), "not enough minted yet for this cleanup");
     for (uint256 i = oldNextOwnerToSet; i <= endIndex; i++) {
@@ -1164,7 +1150,7 @@ abstract contract Ownable is Context {
     /**
      * @dev Throws if called by any account other than the owner.
      */
-    modifier onlyOwner() {
+    modifier onlyOwner() virtual {
         require(owner() == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
@@ -1196,223 +1182,127 @@ abstract contract Ownable is Context {
     }
 }
 
-contract Azuki is Ownable, ERC721A, ReentrancyGuard {
-  uint256 public immutable maxPerAddressDuringMint;
-  uint256 public immutable amountForDevs;
-  uint256 public immutable amountForAuctionAndDev;
+contract OwnableDelegateProxy {}
 
-  struct SaleConfig {
-    uint32 auctionSaleStartTime;
-    uint32 publicSaleStartTime;
-    uint64 mintlistPrice;
-    uint64 publicPrice;
-    uint32 publicSaleKey;
-  }
+/**
+ * Used to delegate ownership of a contract to another address, to save on unneeded transactions to approve contract use for users
+ */
+contract ProxyRegistry {
+    mapping(address => OwnableDelegateProxy) public proxies;
+}
 
-  SaleConfig public saleConfig;
+contract StarBlockAsset is Ownable, ERC721A {
 
-  mapping(address => uint256) public allowlist;
-
-  constructor(
-    uint256 maxBatchSize_,
-    uint256 collectionSize_,
-    uint256 amountForAuctionAndDev_,
-    uint256 amountForDevs_
-  ) ERC721A("Azuki", "AZUKI", maxBatchSize_, collectionSize_) {
-    maxPerAddressDuringMint = maxBatchSize_;
-    amountForAuctionAndDev = amountForAuctionAndDev_;
-    amountForDevs = amountForDevs_;
-    require(
-      amountForAuctionAndDev_ <= collectionSize_,
-      "larger collection size needed"
-    );
-  }
-
-  modifier callerIsUser() {
-    require(tx.origin == msg.sender, "The caller is another contract");
-    _;
-  }
-
-  function auctionMint(uint256 quantity) external payable callerIsUser {
-    uint256 _saleStartTime = uint256(saleConfig.auctionSaleStartTime);
-    require(
-      _saleStartTime != 0 && block.timestamp >= _saleStartTime,
-      "sale has not started yet"
-    );
-    require(
-      totalSupply() + quantity <= amountForAuctionAndDev,
-      "not enough remaining reserved for auction to support desired mint amount"
-    );
-    require(
-      numberMinted(msg.sender) + quantity <= maxPerAddressDuringMint,
-      "can not mint this many"
-    );
-    uint256 totalCost = getAuctionPrice(_saleStartTime) * quantity;
-    _safeMint(msg.sender, quantity);
-    refundIfOver(totalCost);
-  }
-
-  function allowlistMint() external payable callerIsUser {
-    uint256 price = uint256(saleConfig.mintlistPrice);
-    require(price != 0, "allowlist sale has not begun yet");
-    require(allowlist[msg.sender] > 0, "not eligible for allowlist mint");
-    require(totalSupply() + 1 <= collectionSize, "reached max supply");
-    allowlist[msg.sender]--;
-    _safeMint(msg.sender, 1);
-    refundIfOver(price);
-  }
-
-  function publicSaleMint(uint256 quantity, uint256 callerPublicSaleKey)
-    external
-    payable
-    callerIsUser
-  {
-    SaleConfig memory config = saleConfig;
-    uint256 publicSaleKey = uint256(config.publicSaleKey);
-    uint256 publicPrice = uint256(config.publicPrice);
-    uint256 publicSaleStartTime = uint256(config.publicSaleStartTime);
-    require(
-      publicSaleKey == callerPublicSaleKey,
-      "called with incorrect public sale key"
-    );
-
-    require(
-      isPublicSaleOn(publicPrice, publicSaleKey, publicSaleStartTime),
-      "public sale has not begun yet"
-    );
-    require(totalSupply() + quantity <= collectionSize, "reached max supply");
-    require(
-      numberMinted(msg.sender) + quantity <= maxPerAddressDuringMint,
-      "can not mint this many"
-    );
-    _safeMint(msg.sender, quantity);
-    refundIfOver(publicPrice * quantity);
-  }
-
-  function refundIfOver(uint256 price) private {
-    require(msg.value >= price, "Need to send more ETH.");
-    if (msg.value > price) {
-      payable(msg.sender).transfer(msg.value - price);
-    }
-  }
-
-  function isPublicSaleOn(
-    uint256 publicPriceWei,
-    uint256 publicSaleKey,
-    uint256 publicSaleStartTime
-  ) public view returns (bool) {
-    return
-      publicPriceWei != 0 &&
-      publicSaleKey != 0 &&
-      block.timestamp >= publicSaleStartTime;
-  }
-
-  uint256 public constant AUCTION_START_PRICE = 1 ether;
-  uint256 public constant AUCTION_END_PRICE = 0.15 ether;
-  uint256 public constant AUCTION_PRICE_CURVE_LENGTH = 340 minutes;
-  uint256 public constant AUCTION_DROP_INTERVAL = 20 minutes;
-  uint256 public constant AUCTION_DROP_PER_STEP =
-    (AUCTION_START_PRICE - AUCTION_END_PRICE) /
-      (AUCTION_PRICE_CURVE_LENGTH / AUCTION_DROP_INTERVAL);
-
-  function getAuctionPrice(uint256 _saleStartTime)
-    public
-    view
-    returns (uint256)
-  {
-    if (block.timestamp < _saleStartTime) {
-      return AUCTION_START_PRICE;
-    }
-    if (block.timestamp - _saleStartTime >= AUCTION_PRICE_CURVE_LENGTH) {
-      return AUCTION_END_PRICE;
-    } else {
-      uint256 steps = (block.timestamp - _saleStartTime) /
-        AUCTION_DROP_INTERVAL;
-      return AUCTION_START_PRICE - (steps * AUCTION_DROP_PER_STEP);
-    }
-  }
-
-  function endAuctionAndSetupNonAuctionSaleInfo(
-    uint64 mintlistPriceWei,
-    uint64 publicPriceWei,
-    uint32 publicSaleStartTime
-  ) external onlyOwner {
-    saleConfig = SaleConfig(
-      0,
-      publicSaleStartTime,
-      mintlistPriceWei,
-      publicPriceWei,
-      saleConfig.publicSaleKey
-    );
-  }
-
-  function setAuctionSaleStartTime(uint32 timestamp) external onlyOwner {
-    saleConfig.auctionSaleStartTime = timestamp;
-  }
-
-  function setPublicSaleKey(uint32 key) external onlyOwner {
-    saleConfig.publicSaleKey = key;
-  }
-
-  function seedAllowlist(address[] memory addresses, uint256[] memory numSlots)
-    external
-    onlyOwner
-  {
-    require(
-      addresses.length == numSlots.length,
-      "addresses does not match numSlots length"
-    );
-    for (uint256 i = 0; i < addresses.length; i++) {
-      allowlist[addresses[i]] = numSlots[i];
-    }
-  }
-
-  // For marketing etc.
-  function devMint(uint256 quantity) external onlyOwner {
-    require(
-      totalSupply() + quantity <= amountForDevs,
-      "too many already minted before dev mint"
-    );
-    require(
-      quantity % maxBatchSize == 0,
-      "can only mint a multiple of the maxBatchSize"
-    );
-    uint256 numChunks = quantity / maxBatchSize;
-    for (uint256 i = 0; i < numChunks; i++) {
-      _safeMint(msg.sender, maxBatchSize);
-    }
-  }
-
-  // // metadata URI
   string private _baseTokenURI;
 
-  function _baseURI() internal view virtual override returns (string memory) {
-    return _baseTokenURI;
-  }
+  /* Proxy registry address. */
+  address public proxyRegistryAddress;
 
-  function setBaseURI(string calldata baseURI) external onlyOwner {
-    _baseTokenURI = baseURI;
-  }
+  /* uuid mapping for id. */
+  mapping(uint256 => uint256) public uuidMapTokenId;
 
-  function withdrawMoney() external onlyOwner nonReentrant {
-    (bool success, ) = msg.sender.call{value: address(this).balance}("");
-    require(success, "Transfer failed.");
-  }
+   constructor(
+        string memory _name,
+        string memory _symbol,
+        address _proxyRegistryAddress,
+        string memory baseURI
+    ) ERC721A(_name, _symbol) {
 
-  function setOwnersExplicit(uint256 quantity) external onlyOwner nonReentrant {
-    _setOwnersExplicit(quantity);
-  }
+        proxyRegistryAddress = _proxyRegistryAddress;
+        if (bytes(baseURI).length > 0) {
+            setBaseURI(baseURI);
+        }
+    }
 
-  function numberMinted(address owner) public view returns (uint256) {
-    return _numberMinted(owner);
-  }
+       /**
+     * @dev Throws if called by any account other than the owner or their proxy
+     */
+    modifier onlyOwner() override {
+        require(
+            _isOwner(_msgSender()),
+            "StarBlockAsset#onlyOwner: CALLER_IS_NOT_OWNER"
+        );
+        _;
+    }
 
-  function getOwnershipData(uint256 tokenId)
-    external
-    view
-    returns (TokenOwnership memory)
-  {
-    return ownershipOf(tokenId);
-  }
+     /**
+     * Override isApprovedForAll to whitelist user proxy accounts to enable gas-less listings.
+     */
+    function isApprovedForAll(address owner, address operator)
+        override
+        public
+        view
+        returns (bool)
+    {
+        // Whitelist proxy contracts for easy trading.
+        if (_isProxyForUser(owner, operator)) {
+            return true;
+        }
+        return super.isApprovedForAll(owner, operator);
+    }
+
+    function _isOwner(address _address) internal view returns (bool) {
+        return owner() == _address || _isProxyForUser(owner(), _address);
+    }
+
+    // PROXY HELPER METHODS
+    function _isProxyForUser(address _user, address _address)
+        internal
+        view
+        returns (bool)
+    {
+        return _proxy(_user) == _address;
+    }
+
+    function _proxy(address _address) internal view returns (address) {
+        ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
+        return address(proxyRegistry.proxies(_address));
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function setBaseURI(string memory baseURI) public onlyOwner {
+        _baseTokenURI = baseURI;
+    }
+
+   
+    function mintUuids(
+        address _to,
+        uint256[] memory _uuids
+    ) public onlyOwner {
+        require(
+            _uuids.length > 0,
+            "StarBlockAsset#mintUuids: uuids is not empty"
+        );
+
+        uint256 supply = totalSupply();
+
+        for (uint256 i = 0; i < _uuids.length; i++) {
+
+           supply++;
+           /* tokenId start from 1 */
+           uint256 _tokenId = supply;
+
+           /* map uuid for tokenId */
+           uint256 uuid = _uuids[i]; 
+           require(
+               !existsUuid(uuid),"StarBlockAsset#mintUuids:uuid is exist"
+            );
+            uuidMapTokenId[uuid] = _tokenId; 
+        }
+
+        _safeMint(_to, _uuids.length);
+     }
+
+     /**
+     * @dev Returns whether `uuid` exists.
+     *
+     */
+    function existsUuid(uint256 uuid) internal view returns (bool) {
+        return uuidMapTokenId[uuid] > 0;
+    }
+
 }
 
