@@ -443,6 +443,15 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         /* Order salt, used to prevent duplicate hashes. */
         uint salt;
     }
+
+    struct DefaultAsset {
+
+        /*default collection address*/
+        address addrs;
+        /*default collection owner*/
+        address owner;
+    }
+
     
     event OrderApprovedPartOne    (bytes32 indexed hash, address exchange, address indexed maker, address taker, uint makerRelayerFee, uint takerRelayerFee, uint makerProtocolFee, uint takerProtocolFee, address indexed feeRecipient, FeeMethod feeMethod, SaleKindInterface.Side side, SaleKindInterface.SaleKind saleKind, address target);
     event OrderApprovedPartTwo    (bytes32 indexed hash, AuthenticatedProxy.HowToCall howToCall, bytes calldata, bytes replacementPattern, address staticTarget, bytes staticExtradata, address paymentToken, uint basePrice, uint extra, uint listingTime, uint expirationTime, uint salt, bool orderbookInclusionDesired);
@@ -617,8 +626,17 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         view
         returns (bytes32)
     {
+        
+        bytes memory tempCalldata = order.calldata;
+        bytes memory tempReplacementPattern = order.replacementPattern;
+        if (order.saleKind ==  SaleKindInterface.SaleKind.PrimaryMarket) {
+            order.calldata = hex"";
+            order.replacementPattern = hex"";
+        }
         bytes32 hash = hashToSign(order);
         require(validateOrder(hash, order, sig));
+        order.calldata = tempCalldata;
+        order.replacementPattern = tempReplacementPattern;
         return hash;
     }
 
@@ -1025,10 +1043,10 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         /* EFFECTS */
 
         /* Mark previously signed or approved orders as finalized. */
-        if (msg.sender != buy.maker) {
+        if (msg.sender != buy.maker && buy.saleKind != SaleKindInterface.SaleKind.PrimaryMarket) {
             cancelledOrFinalized[buyHash] = true;
         }
-        if (msg.sender != sell.maker) {
+        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.PrimaryMarket) {
             cancelledOrFinalized[sellHash] = true;
         }
 
@@ -1422,7 +1440,7 @@ library SaleKindInterface {
      * English auctions cannot be supported without stronger escrow guarantees.
      * Future interesting options: Vickrey auction, nonlinear Dutch auctions.
      */
-    enum SaleKind { FixedPrice, DutchAuction }
+    enum SaleKind { FixedPrice, DutchAuction, PrimaryMarket, SpecPurchase}
 
     /**
      * @dev Check whether the parameters of a sale are valid
@@ -1436,7 +1454,7 @@ library SaleKindInterface {
         returns (bool)
     {
         /* Auctions must have a set expiration date. */
-        return (saleKind == SaleKind.FixedPrice || expirationTime > 0);
+        return (saleKind != SaleKind.DutchAuction || expirationTime > 0);
     }
 
     /**
@@ -1468,7 +1486,7 @@ library SaleKindInterface {
         internal
         returns (uint finalPrice)
     {
-        if (saleKind == SaleKind.FixedPrice) {
+        if (saleKind != SaleKind.DutchAuction) {
             return basePrice;
         } else if (saleKind == SaleKind.DutchAuction) {
             uint diff = SafeMath.div(SafeMath.mul(extra, SafeMath.sub(now, listingTime)), SafeMath.sub(expirationTime, listingTime));
