@@ -626,17 +626,8 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         view
         returns (bytes32)
     {
-        
-        bytes memory tempCalldata = order.calldata;
-        bytes memory tempReplacementPattern = order.replacementPattern;
-        if (order.saleKind ==  SaleKindInterface.SaleKind.CollectionSell) {
-            order.calldata = hex"";
-            order.replacementPattern = hex"";
-        }
         bytes32 hash = hashToSign(order);
         require(validateOrder(hash, order, sig));
-        order.calldata = tempCalldata;
-        order.replacementPattern = tempReplacementPattern;
         return hash;
     }
 

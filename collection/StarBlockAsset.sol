@@ -557,6 +557,8 @@ contract ERC721A is
   }
 
   uint256 private currentIndex = 0;
+  uint256 internal immutable collectionSize;
+  uint256 internal immutable maxBatchSize;
 
   // Token name
   string private _name;
@@ -584,11 +586,21 @@ contract ERC721A is
    */
   constructor(
     string memory name_,
-    string memory symbol_
+    string memory symbol_,
+    uint256 maxBatchSize_,
+    uint256 collectionSize_
   ) {
+    require(
+      collectionSize_ > 0,
+      "ERC721A: collection must have a nonzero supply"
+    );
+    require(maxBatchSize_ > 0, "ERC721A: max batch size must be nonzero");
     _name = name_;
     _symbol = symbol_;
+    maxBatchSize = maxBatchSize_;
+    collectionSize = collectionSize_;
   }
+
 
   /**
    * @dev See {IERC721Enumerable-totalSupply}.
@@ -668,14 +680,19 @@ contract ERC721A is
     return uint256(_addressData[owner].numberMinted);
   }
 
-  function ownershipOf(uint256 tokenId)
+   function ownershipOf(uint256 tokenId)
     internal
     view
     returns (TokenOwnership memory)
   {
     require(_exists(tokenId), "ERC721A: owner query for nonexistent token");
 
-    for (uint256 curr = tokenId; curr >= 0; curr--) {
+    uint256 lowestTokenToCheck;
+    if (tokenId >= maxBatchSize) {
+      lowestTokenToCheck = tokenId - maxBatchSize + 1;
+    }
+
+    for (uint256 curr = tokenId; curr >= lowestTokenToCheck; curr--) {
       TokenOwnership memory ownership = _ownerships[curr];
       if (ownership.addr != address(0)) {
         return ownership;
@@ -684,7 +701,6 @@ contract ERC721A is
 
     revert("ERC721A: unable to determine the owner of token");
   }
-
   /**
    * @dev See {IERC721-ownerOf}.
    */
@@ -858,8 +874,8 @@ contract ERC721A is
     require(to != address(0), "ERC721A: mint to the zero address");
     // We know if the first token in the batch doesn't exist, the other ones don't as well, because of serial ordering.
     require(!_exists(startTokenId), "ERC721A: token already minted");
-    // require(quantity <= maxBatchSize, "ERC721A: quantity to mint too high");
-    require(quantity > 0, "ERC721A: quantity must be greater than zero");
+    require(quantity <= maxBatchSize, "ERC721A: quantity to mint too high");
+
 
     _beforeTokenTransfers(address(0), to, startTokenId, quantity);
 
@@ -966,9 +982,9 @@ contract ERC721A is
     uint256 oldNextOwnerToSet = nextOwnerToExplicitlySet;
     require(quantity > 0, "quantity must be nonzero");
     uint256 endIndex = oldNextOwnerToSet + quantity - 1;
-    // if (endIndex > collectionSize - 1) {
-    //   endIndex = collectionSize - 1;
-    // }
+    if (endIndex > collectionSize - 1) {
+      endIndex = collectionSize - 1;
+    }
     // We know if the last one in the group exists, all in the group exist, due to serial ordering.
     require(_exists(endIndex), "not enough minted yet for this cleanup");
     for (uint256 i = oldNextOwnerToSet; i <= endIndex; i++) {
@@ -1198,15 +1214,14 @@ contract StarBlockAsset is Ownable, ERC721A {
   /* Proxy registry address. */
   address public proxyRegistryAddress;
 
-  /* uuid mapping for id. */
-  mapping(uint256 => uint256) public uuidMapTokenId;
-
    constructor(
         string memory _name,
         string memory _symbol,
         address _proxyRegistryAddress,
+        uint256 maxBatchSize_,
+        uint256 collectionSize_,
         string memory baseURI
-    ) ERC721A(_name, _symbol) {
+    ) ERC721A(_name, _symbol, maxBatchSize_, collectionSize_) {
 
         proxyRegistryAddress = _proxyRegistryAddress;
         if (bytes(baseURI).length > 0) {
@@ -1268,41 +1283,18 @@ contract StarBlockAsset is Ownable, ERC721A {
     }
 
    
-    function mintUuids(
+    function mintAssets(
         address _to,
-        uint256[] memory _uuids
+        uint256 quantity
     ) public onlyOwner {
-        require(
-            _uuids.length > 0,
-            "StarBlockAsset#mintUuids: uuids is not empty"
-        );
 
-        uint256 supply = totalSupply();
-
-        for (uint256 i = 0; i < _uuids.length; i++) {
-
-           supply++;
-           /* tokenId start from 1 */
-           uint256 _tokenId = supply;
-
-           /* map uuid for tokenId */
-           uint256 uuid = _uuids[i]; 
-           require(
-               !existsUuid(uuid),"StarBlockAsset#mintUuids:uuid is exist"
-            );
-            uuidMapTokenId[uuid] = _tokenId; 
-        }
-
-        _safeMint(_to, _uuids.length);
+       require(totalSupply() + quantity <= collectionSize, "reached max supply");
+        _safeMint(_to, quantity);
      }
 
-     /**
-     * @dev Returns whether `uuid` exists.
-     *
-     */
-    function existsUuid(uint256 uuid) internal view returns (bool) {
-        return uuidMapTokenId[uuid] > 0;
-    }
+     function collectionMaxSize() public view returns (uint256) {
+       return collectionSize;
+     }
 
 }
 
