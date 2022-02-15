@@ -629,7 +629,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         
         bytes memory tempCalldata = order.calldata;
         bytes memory tempReplacementPattern = order.replacementPattern;
-        if (order.saleKind ==  SaleKindInterface.SaleKind.PrimaryMarket) {
+        if (order.saleKind ==  SaleKindInterface.SaleKind.CollectionSell) {
             order.calldata = hex"";
             order.replacementPattern = hex"";
         }
@@ -1043,10 +1043,11 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         /* EFFECTS */
 
         /* Mark previously signed or approved orders as finalized. */
-        if (msg.sender != buy.maker && buy.saleKind != SaleKindInterface.SaleKind.PrimaryMarket) {
+        if (msg.sender != buy.maker) {
             cancelledOrFinalized[buyHash] = true;
         }
-        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.PrimaryMarket) {
+
+        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.CollectionSell) {
             cancelledOrFinalized[sellHash] = true;
         }
 
@@ -1440,7 +1441,7 @@ library SaleKindInterface {
      * English auctions cannot be supported without stronger escrow guarantees.
      * Future interesting options: Vickrey auction, nonlinear Dutch auctions.
      */
-    enum SaleKind { FixedPrice, DutchAuction, PrimaryMarket, SpecPurchase}
+    enum SaleKind { FixedPrice, DutchAuction, CollectionSell}
 
     /**
      * @dev Check whether the parameters of a sale are valid
@@ -1454,7 +1455,16 @@ library SaleKindInterface {
         returns (bool)
     {
         /* Auctions must have a set expiration date. */
-        return (saleKind != SaleKind.DutchAuction || expirationTime > 0);
+        if (expirationTime > 0 ) {
+            return true;
+        }else {
+            if (saleKind == SaleKind.FixedPrice) {
+                return true;
+            }else if (saleKind == SaleKind.CollectionSell) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1486,7 +1496,9 @@ library SaleKindInterface {
         internal
         returns (uint finalPrice)
     {
-        if (saleKind != SaleKind.DutchAuction) {
+        if (saleKind == SaleKind.FixedPrice) {
+            return basePrice;
+        }else if (saleKind == SaleKind.CollectionSell) {
             return basePrice;
         } else if (saleKind == SaleKind.DutchAuction) {
             uint diff = SafeMath.div(SafeMath.mul(extra, SafeMath.sub(now, listingTime)), SafeMath.sub(expirationTime, listingTime));
