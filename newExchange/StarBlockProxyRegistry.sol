@@ -184,7 +184,7 @@ contract ProxyRegistry is Ownable {
 
 contract StarBlockProxyRegistry is ProxyRegistry {
 
-    string public constant name = "Project Wyvern Proxy Registry";
+    string public constant name = "Project StarBlock Proxy Registry";
 
     /* Whether the initial auth address has been set. */
     bool public initialAddressSet = false;

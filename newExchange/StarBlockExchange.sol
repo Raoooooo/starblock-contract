@@ -4,6 +4,7 @@
 
 pragma solidity ^0.4.13;
 
+
 library SafeMath {
 
   /**
@@ -363,6 +364,9 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     /* Token transfer proxy. */
     TokenTransferProxy public tokenTransferProxy;
 
+    /* CollectionSell. */
+    CollectionSellStrategy public collectionSellStrategy;
+
     /* Cancelled / finalized orders, by hash. */
     mapping(bytes32 => bool) public cancelledOrFinalized;
 
@@ -485,6 +489,28 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         onlyOwner
     {
         protocolFeeRecipient = newProtocolFeeRecipient;
+    }
+
+    /**
+     * @dev Change CollectionSellStrategy (owner only)
+     * @param newCollectionSellStrategy New CollectionSell
+     */
+    function changeCollectionSellStrategy(CollectionSellStrategy newCollectionSellStrategy)
+        public
+        onlyOwner
+    {
+        collectionSellStrategy = newCollectionSellStrategy;
+    }
+
+      /**
+     * @dev Change tokenAddress (owner only)
+     * @param newTokenAddress New tokenAddress
+     */
+    function changeExchangeToken(ERC20 newTokenAddress)
+        public
+        onlyOwner
+    {
+        exchangeToken = newTokenAddress;
     }
 
     /**
@@ -1038,6 +1064,10 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
             cancelledOrFinalized[sellHash] = true;
         }
 
+         /* collectionSell afterBuy ckeck. */ 
+        uint256 quatity = quantity(buy, sell);
+        require(collectionSellStrategy.canBuyCollection(buy.maker, sell.maker, sell.target, quatity));
+
         /* INTERACTIONS */
         /* change the baseprice based on the qutity. */
         if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSell) {
@@ -1062,19 +1092,30 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
             require(staticCall(sell.staticTarget, sell.calldata, sell.staticExtradata));
         }
 
+         /* collectionSell afterBuy ckeck. */ 
+        require(collectionSellStrategy.afterBuyCollection(buy.maker, sell.maker, sell.target, quatity));
+
         /* Log match event. */
         emit OrdersMatched(buyHash, sellHash, sell.feeRecipient != address(0) ? sell.maker : buy.maker, sell.feeRecipient != address(0) ? buy.maker : sell.maker, price, metadata);
     }
 
     function updateTotalPrice(Order memory buy, Order memory sell) internal pure {
 
+            uint256 quatity = quantity(buy, sell);
+            sell.basePrice = sell.basePrice * quatity;
+            buy.basePrice = sell.basePrice;
+
+    }
+
+     function quantity(Order memory buy, Order memory sell) internal pure returns (uint256) {
+
             bytes memory quatityBytes = new bytes(2);
             quatityBytes[0] = buy.calldata[buy.calldata.length - 2];
             quatityBytes[1] = buy.calldata[buy.calldata.length - 1];
-            uint256 quatity = bytesToUint(quatityBytes);
-            sell.basePrice = sell.basePrice * quatity;
-            buy.basePrice = sell.basePrice;
-    }
+            uint256 quati = bytesToUint(quatityBytes);
+            return quati;
+     }
+
 
     function bytesToUint(bytes memory b) internal pure returns (uint256) {
         uint256 number;
@@ -1402,7 +1443,7 @@ contract Exchange is ExchangeCore {
         public
         payable
     {
-
+        require(tx.origin == msg.sender, "The caller is another contract");
         return atomicMatch(
           Order(addrs[0], addrs[1], addrs[2], uints[0], uints[1], uints[2], uints[3], addrs[3], FeeMethod(feeMethodsSidesKindsHowToCalls[0]), SaleKindInterface.Side(feeMethodsSidesKindsHowToCalls[1]), SaleKindInterface.SaleKind(feeMethodsSidesKindsHowToCalls[2]), addrs[4], AuthenticatedProxy.HowToCall(feeMethodsSidesKindsHowToCalls[3]), calldataBuy, replacementPatternBuy, addrs[5], staticExtradataBuy, ERC20(addrs[6]), uints[4], uints[5], uints[6], uints[7], uints[8]),
           Sig(vs[0], rssMetadata[0], rssMetadata[1]),
@@ -1427,14 +1468,31 @@ contract StarBlockExchange is Exchange {
      * @param registryAddress Address of the registry instance which this Exchange instance will use
      * @param tokenAddress Address of the token used for protocol fees
      */
-    constructor (ProxyRegistry registryAddress, TokenTransferProxy tokenTransferProxyAddress, ERC20 tokenAddress, address protocolFeeAddress) public {
+    constructor (ProxyRegistry registryAddress, TokenTransferProxy tokenTransferProxyAddress, ERC20 tokenAddress, address protocolFeeAddress, CollectionSellStrategy _collectionSellStrategy) public {
         registry = registryAddress;
         tokenTransferProxy = tokenTransferProxyAddress;
         exchangeToken = tokenAddress;
         protocolFeeRecipient = protocolFeeAddress;
+        collectionSellStrategy = _collectionSellStrategy;
         owner = msg.sender;
     }
 
+}
+
+contract CollectionSellStrategy is Ownable {
+    /**
+     * @dev check if user can buy the colleciton assets.
+     */
+    function canBuyCollection(address buy, address sell, address collection, uint256 quantity) external view returns (bool) {
+        return true;
+    }
+    
+    /**
+     * @dev update some info after buy collection
+     */
+    function afterBuyCollection(address buy, address sell, address collection, uint256 quantity) external returns (bool) {
+        return true;
+    }
 }
 
 library SaleKindInterface {

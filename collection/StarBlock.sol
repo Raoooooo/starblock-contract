@@ -1218,13 +1218,14 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
         string memory _name,
         string memory _symbol,
         address _proxyRegistryAddress,
-        uint256 maxBatchSize_,
-        uint256 collectionSize_,
+        uint256 _maxBatchSize,
+        uint256 _collectionSize,
+        uint256 _maxPerAddressDuringMint,
         string memory baseURI
-    ) ERC721A(_name, _symbol, maxBatchSize_, collectionSize_) {
+    ) ERC721A(_name, _symbol, _maxBatchSize, _collectionSize) {
 
         proxyRegistryAddress = _proxyRegistryAddress;
-        maxPerAddressDuringMint = maxBatchSize_;
+        maxPerAddressDuringMint = _maxPerAddressDuringMint;
         if (bytes(baseURI).length > 0) {
             setBaseURI(baseURI);
         }
