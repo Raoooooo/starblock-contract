@@ -1093,7 +1093,9 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
 
          /* collectionSell afterBuy ckeck. */ 
-        collectionSellStrategy.afterBuyCollection(buy.maker, sell.maker, sell.target, quantity);
+         if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSell) { 
+            collectionSellStrategy.afterBuyCollection(buy.maker, sell.maker, sell.target, quantity);
+        }
 
         /* Log match event. */
         emit OrdersMatched(buyHash, sellHash, sell.feeRecipient != address(0) ? sell.maker : buy.maker, sell.feeRecipient != address(0) ? buy.maker : sell.maker, price, metadata);

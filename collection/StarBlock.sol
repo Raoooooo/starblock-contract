@@ -1297,12 +1297,12 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
         uint256 quantity
     ) public onlyOwner {
 
-     require(totalSupply() + quantity <= collectionSize, "StarBlockAsset#reached max supply");
+     require(totalSupply() + quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
         _safeMint(_to, quantity);
 
      require(
       numberMinted(_to) + quantity <= maxPerAddressDuringMint,
-       "StarBlockAsset#can not mint this many"
+       "StarBlockAsset#mintAssets can not mint this many"
        );
 
        _safeMint(_to, quantity);
@@ -1314,7 +1314,7 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
 
     function withdrawMoney() external onlyOwner nonReentrant {
       (bool success, ) = msg.sender.call{value: address(this).balance}("");
-      require(success, "StarBlockAsset#Transfer failed.");
+      require(success, "StarBlockAsset#mintAssets Transfer failed.");
     }
 
     function numberMinted(address owner) public view returns (uint256) {
