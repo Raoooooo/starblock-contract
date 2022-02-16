@@ -443,21 +443,17 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         /* Order salt, used to prevent duplicate hashes. */
         uint salt;
     }
-
-    struct DefaultAsset {
-
-        /*default collection address*/
-        address addrs;
-        /*default collection owner*/
-        address owner;
-    }
-
     
     event OrderApprovedPartOne    (bytes32 indexed hash, address exchange, address indexed maker, address taker, uint makerRelayerFee, uint takerRelayerFee, uint makerProtocolFee, uint takerProtocolFee, address indexed feeRecipient, FeeMethod feeMethod, SaleKindInterface.Side side, SaleKindInterface.SaleKind saleKind, address target);
     event OrderApprovedPartTwo    (bytes32 indexed hash, AuthenticatedProxy.HowToCall howToCall, bytes calldata, bytes replacementPattern, address staticTarget, bytes staticExtradata, address paymentToken, uint basePrice, uint extra, uint listingTime, uint expirationTime, uint salt, bool orderbookInclusionDesired);
     event OrderCancelled          (bytes32 indexed hash);
     event OrdersMatched           (bytes32 buyHash, bytes32 sellHash, address indexed maker, address indexed taker, uint price, bytes32 indexed metadata);
 
+
+    function withdrawMoney() external onlyOwner reentrancyGuard {
+       (bool success, ) = msg.sender.call.value(address(this).balance)("");
+       require(success, "Transfer failed.");
+    }
     /**
      * @dev Change the minimum maker fee paid to the protocol (owner only)
      * @param newMinimumMakerProtocolFee New fee to set in basis points
@@ -1012,7 +1008,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
       
         /* Must match calldata after replacement, if specified. */ 
         if (buy.replacementPattern.length > 0) {
-          ArrayUtils.guardedArrayReplace(buy.calldata, sell.calldata, buy.replacementPattern);
+            ArrayUtils.guardedArrayReplace(buy.calldata, sell.calldata, buy.replacementPattern);
         }
         if (sell.replacementPattern.length > 0) {
           ArrayUtils.guardedArrayReplace(sell.calldata, buy.calldata, sell.replacementPattern);
@@ -1043,10 +1039,14 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         }
 
         /* INTERACTIONS */
-
+        /* change the baseprice based on the qutity. */
+        if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSell) {
+            updateTotalPrice(buy, sell);
+        }
+        
         /* Execute funds transfer and pay fees. */
         uint price = executeFundsTransfer(buy, sell);
-
+        
         /* Execute specified call through proxy. */
         require(proxy.proxy(sell.target, sell.howToCall, sell.calldata));
 
@@ -1066,6 +1066,23 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         emit OrdersMatched(buyHash, sellHash, sell.feeRecipient != address(0) ? sell.maker : buy.maker, sell.feeRecipient != address(0) ? buy.maker : sell.maker, price, metadata);
     }
 
+    function updateTotalPrice(Order memory buy, Order memory sell) internal pure {
+
+            bytes memory quatityBytes = new bytes(2);
+            quatityBytes[0] = buy.calldata[buy.calldata.length - 2];
+            quatityBytes[1] = buy.calldata[buy.calldata.length - 1];
+            uint256 quatity = bytesToUint(quatityBytes);
+            sell.basePrice = sell.basePrice * quatity;
+            buy.basePrice = sell.basePrice;
+    }
+
+    function bytesToUint(bytes memory b) internal pure returns (uint256) {
+        uint256 number;
+        for(uint i = 0; i< b.length; i++){
+            number = number + uint8(b[i])*(2**(8*(b.length-(i+1))));
+        }
+        return  number;
+    }
 }
 
 contract Exchange is ExchangeCore {
@@ -1397,13 +1414,13 @@ contract Exchange is ExchangeCore {
 
 }
 
-contract WyvernExchange is Exchange {
+contract StarBlockExchange is Exchange {
 
-    string public constant name = "Project Wyvern Exchange";
+    string public constant name = "Project StarBlock Exchange";
 
-    string public constant version = "2.2";
+    string public constant version = "1.0";
 
-    string public constant codename = "Lambton Worm";
+    string public constant codename = "reechain";
 
     /**
      * @dev Initialize a WyvernExchange instance
