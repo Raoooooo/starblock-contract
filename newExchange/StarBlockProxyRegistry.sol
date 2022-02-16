@@ -182,7 +182,7 @@ contract ProxyRegistry is Ownable {
 
 }
 
-contract WyvernProxyRegistry is ProxyRegistry {
+contract StarBlockProxyRegistry is ProxyRegistry {
 
     string public constant name = "Project Wyvern Proxy Registry";
 
