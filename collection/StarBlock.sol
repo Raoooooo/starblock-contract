@@ -559,7 +559,7 @@ contract ERC721A is
   uint256 private currentIndex = 0;
 
   uint256 internal immutable collectionSize;
-  uint256 internal immutable maxBatchSize;
+  uint256 internal maxBatchSize;
 
   // Token name
   string private _name;
@@ -1212,7 +1212,7 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
   /* Proxy registry address. */
   address public proxyRegistryAddress;
 
-  uint256 public immutable maxPerAddressDuringMint;
+  uint256 public maxPerAddressDuringMint;
 
    constructor(
         string memory _name,
@@ -1284,18 +1284,25 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
         _baseTokenURI = baseURI;
     }
 
-   
+    function setMaxPerAddressDuringMint(uint256 _maxPerAddressDuringMint) public onlyOwner {
+        maxPerAddressDuringMint = _maxPerAddressDuringMint;
+    }
+
+    function setMaxBatchSize(uint256 _maxBatchSize) public onlyOwner {
+        maxBatchSize = _maxBatchSize;
+    }
+
     function mintAssets(
         address _to,
         uint256 quantity
     ) public onlyOwner {
 
-     require(totalSupply() + quantity <= collectionSize, "reached max supply");
+     require(totalSupply() + quantity <= collectionSize, "StarBlockAsset#reached max supply");
         _safeMint(_to, quantity);
 
      require(
       numberMinted(_to) + quantity <= maxPerAddressDuringMint,
-       "can not mint this many"
+       "StarBlockAsset#can not mint this many"
        );
 
        _safeMint(_to, quantity);
@@ -1307,7 +1314,7 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
 
     function withdrawMoney() external onlyOwner nonReentrant {
       (bool success, ) = msg.sender.call{value: address(this).balance}("");
-      require(success, "Transfer failed.");
+      require(success, "StarBlockAsset#Transfer failed.");
     }
 
     function numberMinted(address owner) public view returns (uint256) {
