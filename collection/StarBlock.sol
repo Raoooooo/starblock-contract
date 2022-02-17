@@ -591,11 +591,6 @@ contract ERC721A is
     uint256 maxBatchSize_,
     uint256 collectionSize_
   ) {
-
-    if (collectionSize_ > 0) {
-      require(collectionSize_ > 0,"ERC721A: collection must have a nonzero supply");
-    }
-   
     require(maxBatchSize_ > 0, "ERC721A: max batch size must be nonzero");
     _name = name_;
     _symbol = symbol_;
