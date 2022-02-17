@@ -591,10 +591,11 @@ contract ERC721A is
     uint256 maxBatchSize_,
     uint256 collectionSize_
   ) {
-    require(
-      collectionSize_ > 0,
-      "ERC721A: collection must have a nonzero supply"
-    );
+
+    if (collectionSize_ > 0) {
+      require(collectionSize_ > 0,"ERC721A: collection must have a nonzero supply");
+    }
+   
     require(maxBatchSize_ > 0, "ERC721A: max batch size must be nonzero");
     _name = name_;
     _symbol = symbol_;
@@ -980,9 +981,13 @@ contract ERC721A is
     uint256 oldNextOwnerToSet = nextOwnerToExplicitlySet;
     require(quantity > 0, "quantity must be nonzero");
     uint256 endIndex = oldNextOwnerToSet + quantity - 1;
-    if (endIndex > collectionSize - 1) {
-      endIndex = collectionSize - 1;
+
+    if (collectionSize > 0) {
+      if (endIndex > collectionSize - 1) {
+          endIndex = collectionSize - 1;
+      }
     }
+   
     // We know if the last one in the group exists, all in the group exist, due to serial ordering.
     require(_exists(endIndex), "not enough minted yet for this cleanup");
     for (uint256 i = oldNextOwnerToSet; i <= endIndex; i++) {
@@ -1215,19 +1220,19 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
   uint256 public maxPerAddressDuringMint;
 
    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _proxyRegistryAddress,
-        uint256 _maxBatchSize,
-        uint256 _collectionSize,
-        uint256 _maxPerAddressDuringMint,
-        string memory baseURI
-    ) ERC721A(_name, _symbol, _maxBatchSize, _collectionSize) {
+        string memory name_,
+        string memory symbol_,
+        address proxyRegistryAddress_,
+        uint256 maxBatchSize_,
+        uint256 collectionSize_,
+        uint256 maxPerAddressDuringMint_,
+        string memory baseURI_
+    ) ERC721A(name_, symbol_, maxBatchSize_, collectionSize_) {
 
-        proxyRegistryAddress = _proxyRegistryAddress;
-        maxPerAddressDuringMint = _maxPerAddressDuringMint;
-        if (bytes(baseURI).length > 0) {
-            setBaseURI(baseURI);
+        proxyRegistryAddress = proxyRegistryAddress_;
+        maxPerAddressDuringMint = maxPerAddressDuringMint_;
+        if (bytes(baseURI_).length > 0) {
+            setBaseURI(baseURI_);
         }
     }
 
@@ -1297,9 +1302,11 @@ contract StarBlock is Ownable, ERC721A, ReentrancyGuard {
         uint256 quantity
     ) public onlyOwner {
 
-     require(totalSupply() + quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
-        _safeMint(_to, quantity);
 
+     if (collectionSize > 0) {
+        require(totalSupply() + quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
+     }
+    
      require(
       numberMinted(_to) + quantity <= maxPerAddressDuringMint,
        "StarBlockAsset#mintAssets can not mint this many"
