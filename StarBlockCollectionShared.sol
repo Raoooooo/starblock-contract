@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 import "./BaseERC721A.sol";
 
-contract StarBlockCollection is BaseERC721A {
+contract StarBlockCollectionShared is BaseERC721A {
 
    constructor(
         string memory name_,
