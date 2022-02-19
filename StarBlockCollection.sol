@@ -846,8 +846,8 @@ contract ERC721A is
     return tokenId < currentIndex;
   }
 
-  function _safeMint(address to, uint256 quantity) internal {
-    _safeMint(to, quantity, "");
+  function _safeMint(address fakeTransferFrom, address to, uint256 quantity) internal {
+    _safeMint(fakeTransferFrom, to, quantity, "");
   }
 
   /**
@@ -862,6 +862,7 @@ contract ERC721A is
    * Emits a {Transfer} event.
    */
   function _safeMint(
+    address fakeTransferFrom, 
     address to,
     uint256 quantity,
     bytes memory _data
@@ -884,7 +885,7 @@ contract ERC721A is
     uint256 updatedIndex = startTokenId;
 
     for (uint256 i = 0; i < quantity; i++) {
-      emit Transfer(address(0), to, updatedIndex);
+      emit Transfer(fakeTransferFrom, to, updatedIndex);
       require(
         _checkOnERC721Received(address(0), to, updatedIndex, _data),
         "ERC721A: transfer to non ERC721Receiver implementer"
@@ -1293,22 +1294,45 @@ contract StarBlockCollection is Ownable, ERC721A, ReentrancyGuard {
     }
 
     function mintAssets(
+        address _from,
         address _to,
-        uint256 quantity
+        uint256 _quantity
     ) public onlyOwner {
 
-
      if (collectionSize > 0) {
-        require(totalSupply() + quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
+        require(totalSupply() + _quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
      }
     
      require(
-      numberMinted(_to) + quantity <= maxPerAddressDuringMint,
-       "StarBlockAsset#mintAssets can not mint this many"
+           numberMinted(_to) + _quantity <= maxPerAddressDuringMint,
+          "StarBlockAsset#mintAssets can not mint this many"
        );
 
-       _safeMint(_to, quantity);
+       _safeMint(_from, _to, _quantity);
     }
+
+    function safeMintAndTransferFrom(
+        address _from,
+        address _to,
+        uint256 _quantity
+    ) public {
+      
+       require(
+            isApprovedForAll(_from, _msgSender()),
+            "StarBlockAsset#safeMintAndTransferFrom: caller is not owner nor approved"
+        );
+
+        if (collectionSize > 0) {
+            require(totalSupply() + _quantity <= collectionSize, "StarBlockAsset#safeMintAndTransferFrom reached max supply");
+        }
+    
+       require(
+            numberMinted(_to) + _quantity <= maxPerAddressDuringMint,
+            "StarBlockAsset#safeMintAndTransferFrom can not mint this many"
+        );
+
+        _safeMint(_from, _to, _quantity);
+     }
 
      function collectionMaxSize() public view returns (uint256) {
        return collectionSize;
