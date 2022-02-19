@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
-import "./BaseERC721A.sol";
+import "./StarBlockBaseCollection.sol";
 
-contract StarBlockCollection is BaseERC721A {
+contract StarBlockCollection is StarBlockBaseCollection {
 
    constructor(
         string memory name_,
@@ -13,8 +13,8 @@ contract StarBlockCollection is BaseERC721A {
         uint256 collectionSize_,
         uint256 maxPerAddressDuringMint_,
         string memory baseURI_
-    ) BaseERC721A(name_, symbol_, proxyRegistryAddress_, maxBatchSize_, collectionSize_, baseURI_) {
-        maxPerAddressDuringMint = maxPerAddressDuringMint_;
+    ) StarBlockBaseCollection(name_, symbol_, proxyRegistryAddress_, maxBatchSize_, collectionSize_, maxPerAddressDuringMint_, baseURI_) {
+       
     }
 
     function mintAssets(

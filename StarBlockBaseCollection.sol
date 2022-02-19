@@ -1205,7 +1205,7 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract BaseERC721A is Ownable, ERC721A, ReentrancyGuard {
+contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard {
 
   string private _baseTokenURI;
 
@@ -1220,9 +1220,11 @@ contract BaseERC721A is Ownable, ERC721A, ReentrancyGuard {
         address proxyRegistryAddress_,
         uint256 maxBatchSize_,
         uint256 collectionSize_,
+        uint256 maxPerAddressDuringMint_,
         string memory baseURI_
     ) ERC721A(name_, symbol_, maxBatchSize_, collectionSize_) {
         proxyRegistryAddress = proxyRegistryAddress_;
+        maxPerAddressDuringMint = maxPerAddressDuringMint_;
         if (bytes(baseURI_).length > 0) {
             setBaseURI(baseURI_);
         }
