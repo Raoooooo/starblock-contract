@@ -12,7 +12,7 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract StarBlockCollection is Ownable, ERC721A, ReentrancyGuard {
+contract StarBlockCollectionShared is Ownable, ERC721A, ReentrancyGuard {
 
   string private _baseTokenURI;
 
@@ -99,25 +99,30 @@ contract StarBlockCollection is Ownable, ERC721A, ReentrancyGuard {
         maxBatchSize = _maxBatchSize;
     }
 
-    function mintAssets(
+    function safeMintAndTransferFrom(
         address _from,
         address _to,
         uint256 _quantity
-    ) public onlyOwnerOrProxy {
+    ) public {
+      
+       require(
+            isApprovedForAll(_from, _msgSender()),
+            "StarBlockAsset#safeMintAndTransferFrom: caller is not owner nor approved"
+        );
 
-     if (collectionSize > 0) {
-        require(totalSupply() + _quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
-     }
+        if (collectionSize > 0) {
+            require(totalSupply() + _quantity <= collectionSize, "StarBlockAsset#safeMintAndTransferFrom reached max supply");
+        }
     
-     require(
-           numberMinted(_to) + _quantity <= maxPerAddressDuringMint,
-          "StarBlockAsset#mintAssets can not mint this many"
-       );
+       require(
+            numberMinted(_to) + _quantity <= maxPerAddressDuringMint,
+            "StarBlockAsset#safeMintAndTransferFrom can not mint this many"
+        );
 
-       _safeMint(address(0), _to, _quantity);
+        _safeMint(_from, _to, _quantity);
     }
 
-    function collectionMaxSize() public view returns (uint256) {
+     function collectionMaxSize() public view returns (uint256) {
        return collectionSize;
     }
 
