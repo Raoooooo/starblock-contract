@@ -17,7 +17,7 @@ contract StarBlockUserCollection is StarBlockBaseCollection {
 
     }
 
-    function safeMintAndTransferFrom(
+    function mintAssets(
         address _from,
         address _to,
         uint256 _quantity
