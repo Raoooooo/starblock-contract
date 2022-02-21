@@ -23,12 +23,12 @@ contract StarBlockCollection is StarBlockBaseCollection {
     ) public onlyOwnerOrProxy {
 
      if (collectionSize > 0) {
-        require(totalSupply() + _quantity <= collectionSize, "StarBlockAsset#mintAssets reached max supply");
+        require(totalSupply() + _quantity <= collectionSize, "StarBlockCollection#mintAssets reached max supply");
      }
     
      require(
            numberMinted(_to) + _quantity <= maxPerAddressDuringMint,
-          "StarBlockAsset#mintAssets can not mint this many"
+          "StarBlockCollection#mintAssets can not mint this many"
        );
 
        _safeMint(address(0), _to, _quantity);
