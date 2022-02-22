@@ -1292,12 +1292,10 @@ contract ProxyRegistry {
 
 contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable {
 
-  string private _baseTokenURI;
+   string private _baseTokenURI;
 
-  /* Proxy registry address. */
-  address public proxyRegistryAddress;
-
-  uint256 public maxPerAddressDuringMint;
+   /* Proxy registry address. */
+   address public proxyRegistryAddress;
 
    constructor(
         string memory name_,
@@ -1305,11 +1303,9 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
         address proxyRegistryAddress_,
         uint256 maxBatchSize_,
         uint256 collectionSize_,
-        uint256 maxPerAddressDuringMint_,
         string memory baseURI_
     ) ERC721A(name_, symbol_, maxBatchSize_, collectionSize_) {
         proxyRegistryAddress = proxyRegistryAddress_;
-        maxPerAddressDuringMint = maxPerAddressDuringMint_;
         if (bytes(baseURI_).length > 0) {
             setBaseURI(baseURI_);
         }
@@ -1368,10 +1364,6 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
         _baseTokenURI = baseURI;
     }
 
-    function setMaxPerAddressDuringMint(uint256 _maxPerAddressDuringMint) public onlyOwnerOrProxy {
-        maxPerAddressDuringMint = _maxPerAddressDuringMint;
-    }
-
     function setMaxBatchSize(uint256 _maxBatchSize) public onlyOwnerOrProxy {
         maxBatchSize = _maxBatchSize;
     }
@@ -1382,19 +1374,11 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
 
     function withdrawMoney() external onlyOwner nonReentrant {
       (bool success, ) = msg.sender.call{value: address(this).balance}("");
-      require(success, "StarBlockAsset#mintAssets Transfer failed.");
+      require(success, "StarBlockBaseCollection#withdrawMoney Transfer failed.");
     }
 
     function numberMinted(address owner) public view returns (uint256) {
      return _numberMinted(owner);
-    }
-
-    function pause() external onlyOwnerOrProxy {
-        _pause();
-    }
-
-    function unpause() external onlyOwnerOrProxy {
-        _unpause();
     }
 
 }

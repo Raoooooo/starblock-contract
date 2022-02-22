@@ -363,9 +363,6 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     /* Token transfer proxy. */
     TokenTransferProxy public tokenTransferProxy;
 
-    /* CollectionSell. */
-    CollectionSellStrategy public collectionSellStrategy;
-
     /* Cancelled / finalized orders, by hash. */
     mapping(bytes32 => bool) public cancelledOrFinalized;
 
@@ -488,20 +485,10 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         onlyOwner
     {
         protocolFeeRecipient = newProtocolFeeRecipient;
+
     }
 
     /**
-     * @dev Change CollectionSellStrategy (owner only)
-     * @param newCollectionSellStrategy New CollectionSell
-     */
-    function changeCollectionSellStrategy(CollectionSellStrategy newCollectionSellStrategy)
-        public
-        onlyOwner
-    {
-        collectionSellStrategy = newCollectionSellStrategy;
-    }
-
-      /**
      * @dev Change exchangeToken (owner only)
      * @param newExchangeToken New exchangeToken
      */
@@ -1058,22 +1045,19 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         if (msg.sender != buy.maker) {
             cancelledOrFinalized[buyHash] = true;
         }
-        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.CollectionSell) {
+        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.CollectionSale) {
             cancelledOrFinalized[sellHash] = true;
         }
 
         uint256 quantity;
         /* INTERACTIONS */
         /* change the baseprice based on the qutity. */
-        if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSell) {
+        if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSale) {
             quantity = getQuantity(buy, sell);
             if (quantity > 1) {
                 sell.basePrice = sell.basePrice * quantity;
                 buy.basePrice = sell.basePrice;
             }
-
-          /* collectionSell canBuy ckeck. */ 
-          require(collectionSellStrategy.canBuyCollection(buy.maker, sell.maker, sell.target, quantity));
         }
         
         /* INTERACTIONS */
@@ -1094,12 +1078,6 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         /* Handle sell-side static call if specified. */
         if (sell.staticTarget != address(0)) {
             require(staticCall(sell.staticTarget, sell.calldata, sell.staticExtradata));
-        }
-
-         /* collectionSell afterBuy ckeck. */ 
-         if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSell) { 
-            quantity = getQuantity(buy, sell);
-            collectionSellStrategy.afterBuyCollection(buy.maker, sell.maker, sell.target, quantity);
         }
 
         /* Log match event. */
@@ -1477,31 +1455,14 @@ contract StarBlockExchange is Exchange {
      * @param registryAddress Address of the registry instance which this Exchange instance will use
      * @param tokenAddress Address of the token used for protocol fees
      */
-    constructor (ProxyRegistry registryAddress, TokenTransferProxy tokenTransferProxyAddress, ERC20 tokenAddress, address protocolFeeAddress, CollectionSellStrategy _collectionSellStrategy) public {
+    constructor (ProxyRegistry registryAddress, TokenTransferProxy tokenTransferProxyAddress, ERC20 tokenAddress, address protocolFeeAddress) public {
         registry = registryAddress;
         tokenTransferProxy = tokenTransferProxyAddress;
         exchangeToken = tokenAddress;
         protocolFeeRecipient = protocolFeeAddress;
-        collectionSellStrategy = _collectionSellStrategy;
         owner = msg.sender;
     }
 
-}
-
-contract CollectionSellStrategy  {
-    /**
-     * @dev check if user can buy the colleciton assets.
-     */
-    function canBuyCollection(address buy, address sell, address collection, uint256 quantity) external view returns (bool) {
-        return true;
-    }
-    
-    /**
-     * @dev update some info after buy collection
-     */
-    function afterBuyCollection(address buy, address sell, address collection, uint256 quantity) external returns (bool) {
-        return true;
-    }
 }
 
 library SaleKindInterface {
@@ -1516,7 +1477,7 @@ library SaleKindInterface {
      * English auctions cannot be supported without stronger escrow guarantees.
      * Future interesting options: Vickrey auction, nonlinear Dutch auctions.
      */
-    enum SaleKind { FixedPrice, DutchAuction, CollectionSell}
+    enum SaleKind { FixedPrice, DutchAuction, CollectionSale}
 
     /**
      * @dev Check whether the parameters of a sale are valid
@@ -1535,7 +1496,7 @@ library SaleKindInterface {
         }else {
             if (saleKind == SaleKind.FixedPrice) {
                 return true;
-            }else if (saleKind == SaleKind.CollectionSell) {
+            }else if (saleKind == SaleKind.CollectionSale) {
                 return true;
             }
         }
@@ -1573,7 +1534,7 @@ library SaleKindInterface {
     {
         if (saleKind == SaleKind.FixedPrice) {
             return basePrice;
-        }else if (saleKind == SaleKind.CollectionSell) {
+        }else if (saleKind == SaleKind.CollectionSale) {
             return basePrice;
         } else if (saleKind == SaleKind.DutchAuction) {
             uint diff = SafeMath.div(SafeMath.mul(extra, SafeMath.sub(now, listingTime)), SafeMath.sub(expirationTime, listingTime));
