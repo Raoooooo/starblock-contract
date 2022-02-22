@@ -37,16 +37,16 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
         uint256 _quantity
     ) internal {
 
-       require((totalSupply() + _quantity) <= collectionSize, "StarBlockCollection#mintAssets reached max supply");
+       require((totalSupply() + _quantity) <= collectionSize, "StarBlockCreatorCollection#mintAssets reached max supply");
       
        require(
            (_numberMinted  + _quantity) <= _maxPerAddressDuringMint,
-           "StarBlockCollection#mintAssets can not mint this many"
+           "StarBlockCreatorCollection#mintAssets can not mint this many"
         );
 
         require(
             (_fromTokenId + _saleQuantity) >= (totalSupply() - 1 + _quantity),
-           "StarBlockCollection#mintAssets can not mint this many"
+           "StarBlockCreatorCollection#mintAssets can not mint this many"
         );
 
        _safeMint(address(0), _to, _quantity);

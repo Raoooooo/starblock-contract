@@ -32,14 +32,14 @@ contract StarBlockCollection is StarBlockBaseCollection {
 
         require(
             isApprovedForAll(_from, _msgSender()),
-            "StarBlockUserCollection#mintAssets: caller is not owner nor approved"
+            "StarBlockCollection#mintAssets: caller is not owner nor approved"
         );
 
-       require((collectionSizeMap[_collectionId] + _quantity) <= _collectionSize, "StarBlockUserCollection#mintAssets reached max supply");
+       require((collectionSizeMap[_collectionId] + _quantity) <= _collectionSize, "StarBlockCollection#mintAssets reached max supply");
       
        require(
            (_numberMinted  + _quantity) <= _maxPerAddressDuringMint,
-           "StarBlockUserCollection#mintAssets can not mint this many"
+           "StarBlockCollection#mintAssets can not mint this many"
         );
 
         _safeMint(_from, _to, _quantity);
