@@ -1436,29 +1436,7 @@ contract Exchange is ExchangeCore {
      require(tx.origin == msg.sender, "The caller is another contract");
     _;
     }
-
-    function getQuantity(Order memory buy, Order memory sell) internal view returns (uint256) {
-            bytes memory quantityBytes = new bytes(2);
-            uint index = SafeMath.sub(buy.calldata.length, 2);
-            uint lastIndex = SafeMath.sub(buy.calldata.length, 1);
-            quantityBytes[0] = buy.calldata[index];
-            quantityBytes[1] = buy.calldata[lastIndex];
-            uint256 quantity = bytesToUint(quantityBytes);
-            return quantity;
-     }
-
-
-    function bytesToUint(bytes memory b) internal pure returns (uint256) {
-        uint256 number;
-        for(uint i = 0; i< b.length; i++) {
-            uint index = SafeMath.add(i, 1);
-            uint length = SafeMath.sub(b.length, index);
-            uint offset = 2**SafeMath.mul(8, length);
-            uint offsetCount = SafeMath.mul(uint8(b[i]), offset);
-            number = SafeMath.add(number, offsetCount);
-        }
-        return  number;
-    }
+    
 }
 
 contract StarBlockExchange is Exchange {
