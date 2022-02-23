@@ -1044,15 +1044,14 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         if (msg.sender != buy.maker) {
             cancelledOrFinalized[buyHash] = true;
         }
-        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.CollectionSale) {
+        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.CollectionRandomSale) {
             cancelledOrFinalized[sellHash] = true;
         }
 
-        uint256 quantity;
         /* INTERACTIONS */
         /* change the baseprice based on the qutity. */
-        if (sell.saleKind == SaleKindInterface.SaleKind.CollectionSale) {
-            quantity = getQuantity(buy, sell);
+        if (sell.saleKind == SaleKindInterface.SaleKind.CollectionRandomSale) {
+           uint256 quantity = getQuantity(buy, sell);
             if (quantity > 1) {
                 sell.basePrice = sell.basePrice * quantity;
                 buy.basePrice = sell.basePrice;
@@ -1497,7 +1496,7 @@ library SaleKindInterface {
      * English auctions cannot be supported without stronger escrow guarantees.
      * Future interesting options: Vickrey auction, nonlinear Dutch auctions.
      */
-    enum SaleKind { FixedPrice, DutchAuction, CollectionSale}
+    enum SaleKind { FixedPrice, DutchAuction, CollectionRandomSale}
 
     /**
      * @dev Check whether the parameters of a sale are valid
@@ -1516,7 +1515,7 @@ library SaleKindInterface {
         }else {
             if (saleKind == SaleKind.FixedPrice) {
                 return true;
-            }else if (saleKind == SaleKind.CollectionSale) {
+            }else if (saleKind == SaleKind.CollectionRandomSale) {
                 return true;
             }
         }
@@ -1554,7 +1553,7 @@ library SaleKindInterface {
     {
         if (saleKind == SaleKind.FixedPrice) {
             return basePrice;
-        }else if (saleKind == SaleKind.CollectionSale) {
+        }else if (saleKind == SaleKind.CollectionRandomSale) {
             return basePrice; 
         }else if (saleKind == SaleKind.DutchAuction) {
             uint diff = SafeMath.div(SafeMath.mul(extra, SafeMath.sub(now, listingTime)), SafeMath.sub(expirationTime, listingTime));
