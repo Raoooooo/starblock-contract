@@ -1381,4 +1381,12 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
      return _numberMinted(owner);
     }
 
+    function pause() external onlyOwnerOrProxy {
+        _pause();
+    }
+
+    function unpause() external onlyOwnerOrProxy {
+        _unpause();
+    }
+
 }

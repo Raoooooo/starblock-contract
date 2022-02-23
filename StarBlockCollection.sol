@@ -21,57 +21,61 @@ contract StarBlockCollection is StarBlockBaseCollection {
     }
 
    function mintAssets(
-        address _from,
-        address _to,
-        uint256 _collectionId,
-        uint256 _numberMinted,
-        uint256 _collectionSize,
-        uint256 _maxPerAddressDuringMint,
-        uint256 _quantity
+        address from_,
+        address to_,
+        uint256 collectionId_,
+        uint256 numberMinted_,
+        uint256 collectionSize_,
+        uint256 maxPerAddressDuringMint_,
+        uint256 quantity_
     ) internal {
 
         require(
-            isApprovedForAll(_from, _msgSender()),
+            isApprovedForAll(from_, _msgSender()),
             "StarBlockCollection#mintAssets: caller is not owner nor approved"
         );
 
-       require((collectionSizeMap[_collectionId] + _quantity) <= _collectionSize, "StarBlockCollection#mintAssets reached max supply");
-      
-       require(
-           (_numberMinted  + _quantity) <= _maxPerAddressDuringMint,
-           "StarBlockCollection#mintAssets can not mint this many"
-        );
+        if (collectionSize_ > 0) {
+            require((collectionSizeMap[collectionId_] + quantity_) <= collectionSize_, "collection can not mint this many");
+        }
 
-        _safeMint(_from, _to, _quantity);
-        collectionSizeMap[_collectionId] = collectionSizeMap[_collectionId] + _quantity;
+        if (maxPerAddressDuringMint_ > 0) {
+            require(
+           (numberMinted_ + quantity_) <= maxPerAddressDuringMint_,
+           "StarBlockCollection#mintAssets address can not mint this many"
+         );
+        }
+
+        _safeMint(from_, to_, quantity_);
+        collectionSizeMap[collectionId_] = collectionSizeMap[collectionId_] + quantity_;
    }
 
     function publicMint(
-        address _from,
-        address _to,
-        uint256 _collectionId,
-        uint256 _collectionSize,
-        uint256 _maxPerAddressDuringMint,
-        uint256 _quantity
+        address from_,
+        address to_,
+        uint256 collectionId_,
+        uint256 collectionSize_,
+        uint256 maxPerAddressDuringMint_,
+        uint256 quantity_
     ) public whenNotPaused {
 
-        mintAssets(_from, _to,  _collectionId, collectionNumberMinted[_collectionId][_to],
-        _collectionSize, _maxPerAddressDuringMint, _quantity);
-        collectionNumberMinted[_collectionId][_to] = collectionNumberMinted[_collectionId][_to] + _quantity;
+        mintAssets(from_, to_,  collectionId_, collectionNumberMinted[collectionId_][to_],
+        collectionSize_, maxPerAddressDuringMint_, quantity_);
+        collectionNumberMinted[collectionId_][to_] = collectionNumberMinted[collectionId_][to_] + quantity_;
     }
 
    function whiteListMint(
-        address _from,
-        address _to,
-        uint256 _collectionId,
-        uint256 _collectionSize,
-        uint256 _maxPerAddressDuringMint,
-        uint256 _quantity
+        address from_,
+        address to_,
+        uint256 collectionId_,
+        uint256 collectionSize_,
+        uint256 maxPerAddressDuringMint_,
+        uint256 quantity_
     )  public whenNotPaused {
 
-        mintAssets(_from, _to, _collectionId, collectionWhiteListNumberMinted[_collectionId][_to],
-        _collectionSize, _maxPerAddressDuringMint, _quantity);
-        collectionWhiteListNumberMinted[_collectionId][_to] = collectionWhiteListNumberMinted[_collectionId][_to] + _quantity;
+        mintAssets(from_, to_, collectionId_, collectionWhiteListNumberMinted[collectionId_][to_],
+        collectionSize_, maxPerAddressDuringMint_, quantity_);
+        collectionWhiteListNumberMinted[collectionId_][to_] = collectionWhiteListNumberMinted[collectionId_][to_] + quantity_;
    }
 }
 

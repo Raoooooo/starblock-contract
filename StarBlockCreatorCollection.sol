@@ -21,66 +21,72 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
 
      /**
      * @dev mint asstes functionality
-     * @param _to   Address of to
-     * @param _fromTokenId tokenId
-     * @param _numberMinted has mint number
-     * @param _saleQuantity max sale quantity
-     * @param _maxPerAddressDuringMint each to can mint max quantity
-     * @param _quantity  to current mint quantity
+     * @param to_   Address of to
+     * @param fromTokenId_ tokenId
+     * @param numberMinted_ has mint number
+     * @param saleQuantity_  collection max sale quantity
+     * @param maxPerAddressDuringMint_ each to can mint max quantity
+     * @param quantity_  to current mint quantity
      */
    function mintAssets(
-        address _to,
-        uint256 _fromTokenId,
-        uint256 _numberMinted,
-        uint256 _saleQuantity,
-        uint256 _maxPerAddressDuringMint,
-        uint256 _quantity
+        address to_,
+        uint256 fromTokenId_,
+        uint256 numberMinted_,
+        uint256 saleQuantity_,
+        uint256 maxPerAddressDuringMint_,
+        uint256 quantity_
     ) internal {
 
-       require((totalSupply() + _quantity) <= collectionSize, "StarBlockCreatorCollection#mintAssets reached max supply");
-      
-       require(
-           (_numberMinted  + _quantity) <= _maxPerAddressDuringMint,
-           "StarBlockCreatorCollection#mintAssets can not mint this many"
-        );
+       if (collectionSize > 0) {
+          require((totalSupply() + quantity_) <= collectionSize, "StarBlockCreatorCollection#mintAssets reached max supply");
+       }
 
-        require(
-            (_fromTokenId + _saleQuantity) >= (totalSupply() - 1 + _quantity),
-           "StarBlockCreatorCollection#mintAssets can not mint this many"
+       if (maxPerAddressDuringMint_ > 0) {
+          require(
+           (numberMinted_ + quantity_) <= maxPerAddressDuringMint_,
+           "StarBlockCreatorCollection#mintAssets address can not mint this many"
         );
+       }
 
-       _safeMint(address(0), _to, _quantity);
+       if (saleQuantity_ > 0) {
+         require(
+            (fromTokenId_ + saleQuantity_) >= (totalSupply() - 1 + quantity_),
+           "StarBlockCreatorCollection#mintAssets collection can not mint this many"
+        );
+       }
+
+       _safeMint(address(0), to_, quantity_);
    }
 
     function publicMint(
-        address _to,
-        uint256 _fromTokenId,
-        uint256 _saleQuantity,
-        uint256 _maxPerAddressDuringMint,
-        uint256 _quantity
+        address to_,
+        uint256 fromTokenId_,
+        uint256 saleQuantity_,
+        uint256 maxPerAddressDuringMint_,
+        uint256 quantity_
     ) public onlyOwnerOrProxy whenNotPaused {
 
-        mintAssets(_to, _fromTokenId, numberMinted(_to), _saleQuantity, _maxPerAddressDuringMint, _quantity);
+        mintAssets(to_, fromTokenId_, numberMinted(to_), saleQuantity_, maxPerAddressDuringMint_, quantity_);
     }
 
      /**
      * @dev whitelists whiteListMint functionality
-     * @param _to   Address of reciver
-     * @param _fromTokenId tokenId
-     * @param _saleQuantity max sale quantity
-     * @param _maxPerAddressDuringMint each reciver can mint max quantity
-     * @param _quantity  reciver current mint quantity
+     * @param to_   Address of reciver
+     * @param fromTokenId_ tokenId
+     * @param saleQuantity_ max sale quantity
+     * @param maxPerAddressDuringMint_ each reciver can mint max quantity
+     * @param quantity_  reciver current mint quantity
      */
    function whiteListMint(
-        address _to,
-        uint256 _fromTokenId,
-        uint256 _saleQuantity,
-        uint256 _maxPerAddressDuringMint,
-        uint256 _quantity
+        address to_,
+        uint256 fromTokenId_,
+        uint256 saleQuantity_,
+        uint256 maxPerAddressDuringMint_,
+        uint256 quantity_
     ) public onlyOwnerOrProxy whenNotPaused {
 
-       mintAssets(_to, _fromTokenId, whiteListNumberMinted[_to], _saleQuantity, _maxPerAddressDuringMint, _quantity);
-       whiteListNumberMinted[_to] = whiteListNumberMinted[_to] + _quantity;
+       mintAssets(to_, fromTokenId_, whiteListNumberMinted[to_], saleQuantity_, maxPerAddressDuringMint_, quantity_);
+       whiteListNumberMinted[to_] = whiteListNumberMinted[to_] + quantity_;
    }
 
 }
