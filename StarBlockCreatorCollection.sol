@@ -50,7 +50,7 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
 
        if (saleQuantity_ > 0) {
          require(
-            (fromTokenId_ + saleQuantity_) >= (totalSupply() + quantity_ - 1),
+            (fromTokenId_ + saleQuantity_ - 1) >= (totalSupply() + quantity_ - 1),
            "StarBlockCreatorCollection#mintAssets collection can not mint this many"
         );
        }
