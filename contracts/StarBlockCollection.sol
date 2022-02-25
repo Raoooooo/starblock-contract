@@ -20,7 +20,7 @@ contract StarBlockCollection is StarBlockBaseCollection {
 
     }
 
-   function mintAssets(
+   function _mintAssets(
         address from_,
         address to_,
         uint256 collectionId_,
@@ -59,7 +59,7 @@ contract StarBlockCollection is StarBlockBaseCollection {
         uint256 quantity_
     ) public whenNotPaused {
 
-        mintAssets(from_, to_,  collectionId_, collectionNumberMinted[collectionId_][to_],
+        _mintAssets(from_, to_,  collectionId_, collectionNumberMinted[collectionId_][to_],
         collectionSize_, maxPerAddressDuringMint_, quantity_);
         collectionNumberMinted[collectionId_][to_] = collectionNumberMinted[collectionId_][to_] + quantity_;
     }
@@ -73,7 +73,7 @@ contract StarBlockCollection is StarBlockBaseCollection {
         uint256 quantity_
     )  public whenNotPaused {
 
-        mintAssets(from_, to_, collectionId_, collectionWhiteListNumberMinted[collectionId_][to_],
+        _mintAssets(from_, to_, collectionId_, collectionWhiteListNumberMinted[collectionId_][to_],
         collectionSize_, maxPerAddressDuringMint_, quantity_);
         collectionWhiteListNumberMinted[collectionId_][to_] = collectionWhiteListNumberMinted[collectionId_][to_] + quantity_;
    }

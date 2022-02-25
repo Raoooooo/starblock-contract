@@ -28,7 +28,7 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
      * @param maxPerAddressDuringMint_ each to can mint max quantity
      * @param quantity_  to current mint quantity
      */
-   function mintAssets(
+   function _mintAssets(
         address to_,
         uint256 fromTokenId_,
         uint256 numberMinted_,
@@ -66,7 +66,7 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
         uint256 quantity_
     ) public onlyOwnerOrProxy whenNotPaused {
 
-        mintAssets(to_, fromTokenId_, numberMinted(to_), saleQuantity_, maxPerAddressDuringMint_, quantity_);
+        _mintAssets(to_, fromTokenId_, numberMinted(to_), saleQuantity_, maxPerAddressDuringMint_, quantity_);
     }
 
      /**
@@ -85,7 +85,7 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
         uint256 quantity_
     ) public onlyOwnerOrProxy whenNotPaused {
 
-       mintAssets(to_, fromTokenId_, whiteListNumberMinted[to_], saleQuantity_, maxPerAddressDuringMint_, quantity_);
+       _mintAssets(to_, fromTokenId_, whiteListNumberMinted[to_], saleQuantity_, maxPerAddressDuringMint_, quantity_);
        whiteListNumberMinted[to_] = whiteListNumberMinted[to_] + quantity_;
    }
 
