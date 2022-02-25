@@ -29,10 +29,9 @@ contract StarBlockCollection is StarBlockBaseCollection {
         uint256 maxPerAddressDuringMint_,
         uint256 quantity_
     ) internal {
-
         require(
-            isApprovedForAll(from_, _msgSender()),
-            "StarBlockCollection#mintAssets: caller is not owner nor approved"
+            _isProxyForUser(from_, _msgSender()),
+            "StarBlockCollection#mintAssets: caller is not approved"
         );
 
         if (collectionSize_ > 0) {

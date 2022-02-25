@@ -20,6 +20,21 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
     }
 
      /**
+     * @dev Throws if called by any account other than the owner or their proxy
+     */
+    modifier onlyOwnerOrProxy() {
+        require(
+            _isOwnerOrProxy(_msgSender()),
+            "StarBlockCreatorCollection#onlyOwnerOrProxy: CALLER_IS_NOT_OWNER"
+        );
+        _;
+    }
+
+    function _isOwnerOrProxy(address _address) internal view returns (bool) {
+        return owner() == _address || _isProxyForUser(owner(), _address);
+    }
+
+     /**
      * @dev mint asstes functionality
      * @param to_   Address of to
      * @param fromTokenId_ tokenId

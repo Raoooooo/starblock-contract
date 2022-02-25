@@ -1311,37 +1311,6 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
         }
     }
 
-     /**
-     * @dev Throws if called by any account other than the owner or their proxy
-     */
-    modifier onlyOwnerOrProxy() {
-        require(
-            _isOwnerOrProxy(_msgSender()),
-            "ERC1155Tradable#onlyOwner: CALLER_IS_NOT_OWNER"
-        );
-        _;
-    }
-
-     /**
-     * Override isApprovedForAll to whitelist user proxy accounts to enable gas-less listings.
-     */
-    function isApprovedForAll(address owner, address operator)
-        override
-        public
-        view
-        returns (bool)
-    {
-        // Whitelist proxy contracts for easy trading.
-        if (_isProxyForUser(owner, operator)) {
-            return true;
-        }
-        return super.isApprovedForAll(owner, operator);
-    }
-
-    function _isOwnerOrProxy(address _address) internal view returns (bool) {
-        return owner() == _address || _isProxyForUser(owner(), _address);
-    }
-
     // PROXY HELPER METHODS
     function _isProxyForUser(address _user, address _address)
         internal
@@ -1360,11 +1329,11 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
         return _baseTokenURI;
     }
 
-    function setBaseURI(string memory baseURI) public onlyOwnerOrProxy {
+    function setBaseURI(string memory baseURI) public onlyOwner {
         _baseTokenURI = baseURI;
     }
 
-    function setMaxBatchSize(uint256 _maxBatchSize) public onlyOwnerOrProxy {
+    function setMaxBatchSize(uint256 _maxBatchSize) public onlyOwner {
         maxBatchSize = _maxBatchSize;
     }
 
@@ -1381,11 +1350,11 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
      return _numberMinted(owner);
     }
 
-    function pause() external onlyOwnerOrProxy {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyOwnerOrProxy {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
