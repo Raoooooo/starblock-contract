@@ -35,13 +35,13 @@ contract StarBlockCollection is StarBlockBaseCollection {
         );
 
         if (collectionSize_ > 0) {
-            require((collectionSizeMap[collectionId_] + quantity_) <= collectionSize_, "collection can not mint this many");
+            require((collectionSizeMap[collectionId_] + quantity_) <= collectionSize_, "StarBlockCollection#mintAssets reached max supply");
         }
 
         if (maxPerAddressDuringMint_ > 0) {
             require(
            (numberMinted_ + quantity_) <= maxPerAddressDuringMint_,
-           "StarBlockCollection#mintAssets address can not mint this many"
+           "StarBlockCollection#mintAssets reached per address max supply"
          );
         }
 

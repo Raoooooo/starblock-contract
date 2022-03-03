@@ -59,14 +59,14 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
        if (maxPerAddressDuringMint_ > 0) {
           require(
            (numberMinted_ + quantity_) <= maxPerAddressDuringMint_,
-           "StarBlockCreatorCollection#mintAssets address can not mint this many"
+           "StarBlockCreatorCollection#mintAssets reached per address max supply"
         );
        }
 
        if (saleQuantity_ > 0) {
          require(
-            (fromTokenId_ + saleQuantity_ - 1) >= (totalSupply() + quantity_ - 1),
-           "StarBlockCreatorCollection#mintAssets collection can not mint this many"
+         (fromTokenId_ <= totalSupply()) && ((fromTokenId_ + saleQuantity_ - 1) >= (totalSupply() + quantity_ - 1)),
+           "StarBlockCreatorCollection#mintAssets mint tokenId between fromTokenId_ and (fromTokenId_ + saleQuantity_ - 1)"
         );
        }
 
