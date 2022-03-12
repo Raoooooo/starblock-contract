@@ -1607,9 +1607,7 @@ library SaleKindInterface {
         if (expirationTime > 0 ) {
             return true;
         }else {
-            if (saleKind == SaleKind.FixedPrice) {
-                return true;
-            }else if (saleKind == SaleKind.CollectionRandomSale) {
+            if (saleKind == SaleKind.FixedPrice || saleKind == SaleKind.CollectionRandomSale) {
                 return true;
             }
         }
@@ -1645,10 +1643,8 @@ library SaleKindInterface {
         internal
         returns (uint finalPrice)
     {
-        if (saleKind == SaleKind.FixedPrice) {
+        if (saleKind == SaleKind.FixedPrice || saleKind == SaleKind.CollectionRandomSale) {
             return basePrice;
-        }else if (saleKind == SaleKind.CollectionRandomSale) {
-            return basePrice; 
         } else if (saleKind == SaleKind.DutchAuction) {
             uint diff = SafeMath.div(SafeMath.mul(extra, SafeMath.sub(now, listingTime)), SafeMath.sub(expirationTime, listingTime));
             if (side == Side.Sell) {
