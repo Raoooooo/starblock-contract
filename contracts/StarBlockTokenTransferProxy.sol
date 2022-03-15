@@ -202,7 +202,7 @@ contract TokenTransferProxy {
 
 }
 
-contract WyvernTokenTransferProxy is TokenTransferProxy {
+contract StarBlockTokenTransferProxy is TokenTransferProxy {
 
     constructor (ProxyRegistry registryAddr)
         public

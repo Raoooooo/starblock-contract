@@ -1,4 +1,8 @@
 /**
+ *Submitted for verification at Etherscan.io on 2021-03-31
+*/
+
+/**
  *Submitted for verification at Etherscan.io on 2018-06-12
 */
 
@@ -178,9 +182,9 @@ contract ProxyRegistry is Ownable {
 
 }
 
-contract WyvernProxyRegistry is ProxyRegistry {
+contract StarBlockProxyRegistry is ProxyRegistry {
 
-    string public constant name = "Project Wyvern Proxy Registry";
+    string public constant name = "Project StarBlock Proxy Registry";
 
     /* Whether the initial auth address has been set. */
     bool public initialAddressSet = false;
