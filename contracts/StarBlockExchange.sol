@@ -367,7 +367,7 @@ contract TokenRecipient {
 }
 
 contract ExchangeCore is ReentrancyGuarded, Ownable {
-    string public constant name = "Project StarBlock Exchange";
+    string public constant name = "StarBlock Exchange Contract";
     string public constant version = "1.0";
 
     // NOTE: these hashes are derived and verified in the constructor.
@@ -496,7 +496,6 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         require(keccak256(bytes(name)) == _NAME_HASH);
         require(keccak256(bytes(version)) == _VERSION_HASH);
         require(keccak256("Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)") == _ORDER_TYPEHASH);
-        require(DOMAIN_SEPARATOR == _deriveDomainSeparator());
     }
 
     /**
@@ -1178,7 +1177,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         if (sell.saleKind == SaleKindInterface.SaleKind.CollectionRandomSale) {
            uint256 quantity = getQuantity(buy, sell);
             if (quantity > 1) {
-                sell.basePrice = sell.basePrice * quantity;
+                sell.basePrice = SafeMath.mul(sell.basePrice, quantity);
                 buy.basePrice = sell.basePrice;
             }
         }
@@ -1218,8 +1217,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
             uint lastIndex = SafeMath.sub(buy.calldata.length, 1);
             quantityBytes[0] = buy.calldata[index];
             quantityBytes[1] = buy.calldata[lastIndex];
-            uint256 quantity = bytesToUint(quantityBytes);
-            return quantity;
+            return bytesToUint(quantityBytes);
      }
 
 
@@ -1232,7 +1230,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
             uint offsetCount = SafeMath.mul(uint8(b[i]), offset);
             number = SafeMath.add(number, offsetCount);
         }
-        return  number;
+        return number;
     }
 }
 
