@@ -372,7 +372,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
 
     // NOTE: these hashes are derived and verified in the constructor.
     bytes32 private constant _EIP_712_DOMAIN_TYPEHASH = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
-    bytes32 private constant _NAME_HASH = 0x20d7d4e4ef2c5eaa67b7c2c2958e714f4871d10550fd3e3723c545fceef32112;
+    bytes32 private constant _NAME_HASH = 0x908be1d09f2d17dd8812f5561d84e89cc7052e553487116c4cf73793bdba635d;
     bytes32 private constant _VERSION_HASH = 0xe6bbd6277e1bf288eed5e8d1780f9a50b239e86b153736bceebccf4ea79d90b3;
     bytes32 private constant _ORDER_TYPEHASH = 0xdba08a88a748f356e8faf8578488343eab21b1741728779c9dcfdc782bc800f8;
 
@@ -506,7 +506,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         return keccak256(
             abi.encode(
                 _EIP_712_DOMAIN_TYPEHASH, // keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
-                _NAME_HASH, // keccak256("Project StarBlock Exchange")
+                _NAME_HASH, // keccak256("StarBlock Exchange Contract")
                 _VERSION_HASH, // keccak256(bytes("1.0"))
                 _CHAIN_ID, // NOTE: this is fixed, need to use solidity 0.5+ or make external call to support!
                 address(this)
@@ -1217,7 +1217,8 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
             uint lastIndex = SafeMath.sub(buy.calldata.length, 1);
             quantityBytes[0] = buy.calldata[index];
             quantityBytes[1] = buy.calldata[lastIndex];
-            return bytesToUint(quantityBytes);
+            uint256 quantity = bytesToUint(quantityBytes);
+            return quantity;
      }
 
 
