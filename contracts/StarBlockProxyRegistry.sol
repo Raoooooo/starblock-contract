@@ -192,7 +192,13 @@ contract StarBlockProxyRegistry is ProxyRegistry {
     constructor ()
         public
     {
-        delegateProxyImplementation = new AuthenticatedProxy();
+
+    }
+
+    function setDelegateProxyImplementation(address implementation) onlyOwner public 
+    {
+        require(delegateProxyImplementation == address(0));
+        delegateProxyImplementation = implementation;
     }
 
     /** 
