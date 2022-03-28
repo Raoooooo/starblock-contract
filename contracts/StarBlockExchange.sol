@@ -524,8 +524,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     }
 
     function withdrawMoney() external onlyOwner reentrancyGuard {
-       (bool success, ) = msg.sender.call.value(address(this).balance)("");
-       require(success, "ExchangeCore#withdrawMoney Transfer failed.");
+      msg.sender.transfer(address(this).balance);
     }
 
     /**

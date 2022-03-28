@@ -133,12 +133,22 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
    function safeTransferToken(address to_, uint256 amount_) internal {
       if(address(tokenAddress) != address(0) && amount_ > 0){
         uint256 bal = tokenAddress.balanceOf(address(this));
-        if (amount_ > bal) {
-            tokenAddress.transfer(to_, bal);
-        } else {
-            tokenAddress.transfer(to_, amount_);
+        if(bal > 0) {
+            if (amount_ > bal) {
+                tokenAddress.transfer(to_, bal);
+            } else {
+                tokenAddress.transfer(to_, amount_);
+            }
         }
       }
     }
+
+    function withdrawToken() external onlyOwner {
+        uint256 bal = tokenAddress.balanceOf(address(this));
+        if(bal > 0) {
+            tokenAddress.transfer(msg.sender, bal);
+        }
+    }
+    
 }
 

@@ -1342,8 +1342,7 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
     }
 
     function withdrawMoney() external onlyOwner nonReentrant {
-      (bool success, ) = msg.sender.call{value: address(this).balance}("");
-      require(success, "StarBlockBaseCollection#withdrawMoney Transfer failed.");
+      (payable(msg.sender)).transfer(address(this).balance);
     }
 
     function numberMinted(address owner) public view returns (uint256) {
