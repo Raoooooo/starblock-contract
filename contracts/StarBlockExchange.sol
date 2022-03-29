@@ -1171,7 +1171,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
 
         /* change the baseprice based on the qutity. */
         if (sell.saleKind == SaleKindInterface.SaleKind.CollectionRandomSale) {
-           uint256 quantity = getQuantity(buy, sell);
+           uint256 quantity = getQuantity(buy);
             if (quantity > 1) {
                 sell.basePrice = SafeMath.mul(sell.basePrice, quantity);
                 buy.basePrice = sell.basePrice;
@@ -1207,7 +1207,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         return requireValidOrder(order, sig, nonces[order.maker]);
     }
 
-      function getQuantity(Order memory buy, Order memory sell) internal view returns (uint256) {
+      function getQuantity(Order memory buy) internal pure returns (uint256) {
             bytes memory quantityBytes = new bytes(2);
             uint index = SafeMath.sub(buy.calldata.length, 2);
             uint lastIndex = SafeMath.sub(buy.calldata.length, 1);
