@@ -1,6 +1,3 @@
-/**
- *Submitted for verification at Etherscan.io on 2018-06-12
-*/
 
 pragma solidity ^0.4.13;
 
@@ -184,12 +181,6 @@ contract StarBlockProxyRegistry is ProxyRegistry {
 
     /* Whether the initial auth address has been set. */
     bool public initialAddressSet = false;
-
-    constructor ()
-        public
-    {
-
-    }
 
     function setDelegateProxyImplementation(address implementation) onlyOwner public 
     {
