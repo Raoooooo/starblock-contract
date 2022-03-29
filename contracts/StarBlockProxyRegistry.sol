@@ -1,8 +1,4 @@
 /**
- *Submitted for verification at Etherscan.io on 2021-03-31
-*/
-
-/**
  *Submitted for verification at Etherscan.io on 2018-06-12
 */
 
@@ -182,9 +178,9 @@ contract ProxyRegistry is Ownable {
 
 }
 
-contract StarBlockProxyRegistry is ProxyRegistry {
+contract WyvernProxyRegistry is ProxyRegistry {
 
-    string public constant name = "Project StarBlock Proxy Registry";
+    string public constant name = "Project Wyvern Proxy Registry";
 
     /* Whether the initial auth address has been set. */
     bool public initialAddressSet = false;
@@ -192,13 +188,7 @@ contract StarBlockProxyRegistry is ProxyRegistry {
     constructor ()
         public
     {
-
-    }
-
-    function setDelegateProxyImplementation(address implementation) onlyOwner public 
-    {
-        require(delegateProxyImplementation == address(0));
-        delegateProxyImplementation = implementation;
+        delegateProxyImplementation = new AuthenticatedProxy();
     }
 
     /** 
