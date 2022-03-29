@@ -367,13 +367,13 @@ contract TokenRecipient {
 }
 
 contract ExchangeCore is ReentrancyGuarded, Ownable {
-    string public constant name = "Wyvern Exchange Contract";
-    string public constant version = "2.3";
+    string public constant name = "StarBlock Exchange Contract";
+    string public constant version = "1.0";
 
     // NOTE: these hashes are derived and verified in the constructor.
     bytes32 private constant _EIP_712_DOMAIN_TYPEHASH = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
-    bytes32 private constant _NAME_HASH = 0x9a2ed463836165738cfa54208ff6e7847fd08cbaac309aac057086cb0a144d13;
-    bytes32 private constant _VERSION_HASH = 0xe2fd538c762ee69cab09ccd70e2438075b7004dd87577dc3937e9fcc8174bb64;
+    bytes32 private constant _NAME_HASH = 0x908be1d09f2d17dd8812f5561d84e89cc7052e553487116c4cf73793bdba635d;
+    bytes32 private constant _VERSION_HASH = 0xe6bbd6277e1bf288eed5e8d1780f9a50b239e86b153736bceebccf4ea79d90b3;
     bytes32 private constant _ORDER_TYPEHASH = 0xdba08a88a748f356e8faf8578488343eab21b1741728779c9dcfdc782bc800f8;
 
     bytes4 private constant _EIP_1271_MAGIC_VALUE = 0x1626ba7e;
@@ -385,7 +385,7 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     uint256 private constant _CHAIN_ID = 1;
 
     // Note: the domain separator is derived and verified in the constructor. */
-    bytes32 public constant DOMAIN_SEPARATOR = 0x72982d92449bfb3d338412ce4738761aff47fb975ceb17a1bc3712ec716a5a68;
+    bytes32 public constant DOMAIN_SEPARATOR = _deriveDomainSeparator();
 
     /* The token used to pay exchange fees. */
     ERC20 public exchangeToken;
@@ -496,7 +496,6 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         require(keccak256(bytes(name)) == _NAME_HASH);
         require(keccak256(bytes(version)) == _VERSION_HASH);
         require(keccak256("Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)") == _ORDER_TYPEHASH);
-        require(DOMAIN_SEPARATOR == _deriveDomainSeparator());
     }
 
     /**
@@ -507,8 +506,8 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         return keccak256(
             abi.encode(
                 _EIP_712_DOMAIN_TYPEHASH, // keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
-                _NAME_HASH, // keccak256("Wyvern Exchange Contract")
-                _VERSION_HASH, // keccak256(bytes("2.3"))
+                _NAME_HASH, // keccak256("StarBlock Exchange Contract")
+                _VERSION_HASH, // keccak256(bytes("1.0"))
                 _CHAIN_ID, // NOTE: this is fixed, need to use solidity 0.5+ or make external call to support!
                 address(this)
             )
@@ -522,6 +521,10 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
     function incrementNonce() external {
         uint newNonce = ++nonces[msg.sender];
         emit NonceIncremented(msg.sender, newNonce);
+    }
+
+    function withdrawMoney() external onlyOwner reentrancyGuard {
+      msg.sender.transfer(address(this).balance);
     }
 
     /**
@@ -555,6 +558,17 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         onlyOwner
     {
         protocolFeeRecipient = newProtocolFeeRecipient;
+    }
+
+    /**
+     * @dev Change exchangeToken (owner only)
+     * @param newExchangeToken New exchangeToken
+     */
+    function changeExchangeToken(ERC20 newExchangeToken)
+        public
+        onlyOwner
+    {
+        exchangeToken = newExchangeToken;
     }
 
     /**
@@ -1152,11 +1166,20 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
         if (msg.sender != buy.maker) {
             cancelledOrFinalized[buyHash] = true;
         }
-        if (msg.sender != sell.maker) {
+        if (msg.sender != sell.maker && sell.saleKind != SaleKindInterface.SaleKind.CollectionRandomSale) {
             cancelledOrFinalized[sellHash] = true;
         }
 
         /* INTERACTIONS */
+
+        /* change the baseprice based on the qutity. */
+        if (sell.saleKind == SaleKindInterface.SaleKind.CollectionRandomSale) {
+           uint256 quantity = getQuantity(buy, sell);
+            if (quantity > 1) {
+                sell.basePrice = SafeMath.mul(sell.basePrice, quantity);
+                buy.basePrice = sell.basePrice;
+            }
+        }
 
         /* Execute funds transfer and pay fees. */
         uint price = executeFundsTransfer(buy, sell);
@@ -1185,6 +1208,29 @@ contract ExchangeCore is ReentrancyGuarded, Ownable {
 
     function _requireValidOrderWithNonce(Order memory order, Sig memory sig) internal view returns (bytes32) {
         return requireValidOrder(order, sig, nonces[order.maker]);
+    }
+
+      function getQuantity(Order memory buy, Order memory sell) internal view returns (uint256) {
+            bytes memory quantityBytes = new bytes(2);
+            uint index = SafeMath.sub(buy.calldata.length, 2);
+            uint lastIndex = SafeMath.sub(buy.calldata.length, 1);
+            quantityBytes[0] = buy.calldata[index];
+            quantityBytes[1] = buy.calldata[lastIndex];
+            uint256 quantity = bytesToUint(quantityBytes);
+            return quantity;
+     }
+
+
+    function bytesToUint(bytes memory b) internal pure returns (uint256) {
+        uint256 number;
+        for(uint i = 0; i< b.length; i++) {
+            uint index = SafeMath.add(i, 1);
+            uint length = SafeMath.sub(b.length, index);
+            uint offset = 2**SafeMath.mul(8, length);
+            uint offsetCount = SafeMath.mul(uint8(b[i]), offset);
+            number = SafeMath.add(number, offsetCount);
+        }
+        return number;
     }
 }
 
@@ -1494,7 +1540,7 @@ contract Exchange is ExchangeCore {
         uint8[2] vs,
         bytes32[5] rssMetadata)
         public
-        payable
+        payable callerIsUser
     {
 
         return atomicMatch(
@@ -1506,9 +1552,14 @@ contract Exchange is ExchangeCore {
         );
     }
 
+     modifier callerIsUser() {
+     require(tx.origin == msg.sender, "The caller is another contract");
+    _;
+    }
+
 }
 
-contract WyvernExchangeWithBulkCancellations is Exchange {
+contract StarBlockExchange is Exchange {
     string public constant codename = "Bulk Smash";
 
     /**
@@ -1537,7 +1588,7 @@ library SaleKindInterface {
      * English auctions cannot be supported without stronger escrow guarantees.
      * Future interesting options: Vickrey auction, nonlinear Dutch auctions.
      */
-    enum SaleKind { FixedPrice, DutchAuction }
+    enum SaleKind { FixedPrice, DutchAuction, CollectionRandomSale }
 
     /**
      * @dev Check whether the parameters of a sale are valid
@@ -1551,7 +1602,14 @@ library SaleKindInterface {
         returns (bool)
     {
         /* Auctions must have a set expiration date. */
-        return (saleKind == SaleKind.FixedPrice || expirationTime > 0);
+        if (expirationTime > 0 ) {
+            return true;
+        }else {
+            if (saleKind == SaleKind.FixedPrice || saleKind == SaleKind.CollectionRandomSale) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1583,7 +1641,7 @@ library SaleKindInterface {
         internal
         returns (uint finalPrice)
     {
-        if (saleKind == SaleKind.FixedPrice) {
+        if (saleKind == SaleKind.FixedPrice || saleKind == SaleKind.CollectionRandomSale) {
             return basePrice;
         } else if (saleKind == SaleKind.DutchAuction) {
             uint diff = SafeMath.div(SafeMath.mul(extra, SafeMath.sub(now, listingTime)), SafeMath.sub(expirationTime, listingTime));

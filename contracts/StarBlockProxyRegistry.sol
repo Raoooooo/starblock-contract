@@ -178,9 +178,9 @@ contract ProxyRegistry is Ownable {
 
 }
 
-contract WyvernProxyRegistry is ProxyRegistry {
+contract StarBlockProxyRegistry is ProxyRegistry {
 
-    string public constant name = "Project Wyvern Proxy Registry";
+    string public constant name = "Project StarBlock Proxy Registry";
 
     /* Whether the initial auth address has been set. */
     bool public initialAddressSet = false;
@@ -188,7 +188,13 @@ contract WyvernProxyRegistry is ProxyRegistry {
     constructor ()
         public
     {
-        delegateProxyImplementation = new AuthenticatedProxy();
+
+    }
+
+    function setDelegateProxyImplementation(address implementation) onlyOwner public 
+    {
+        require(delegateProxyImplementation == address(0));
+        delegateProxyImplementation = implementation;
     }
 
     /** 
