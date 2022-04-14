@@ -1337,6 +1337,10 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
         maxBatchSize = _maxBatchSize;
     }
 
+    function getMaxBatchSize() public view returns (uint256) {
+        return maxBatchSize;
+    }
+
     function collectionMaxSize() public view returns (uint256) {
        return collectionSize;
     }
