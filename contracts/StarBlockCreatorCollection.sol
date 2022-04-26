@@ -74,6 +74,8 @@ contract StarBlockCreatorCollection is StarBlockBaseCollection {
         uint256 maxPerAddressDuringMint_,
         uint256 quantity_
     ) internal {
+       require(quantity_ > 0, "StarBlockCreatorCollection#mintAssets quantity must greater than zero");
+
        if (collectionSize > 0) {
           require((totalSupply() + quantity_) <= collectionSize, "StarBlockCreatorCollection#mintAssets reached max supply");
        }
