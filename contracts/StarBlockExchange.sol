@@ -1537,7 +1537,7 @@ contract Exchange is ExchangeCore {
         uint8[2] vs,
         bytes32[5] rssMetadata)
         public
-        payable callerIsUser
+        payable
     {
 
         return atomicMatch(
@@ -1548,12 +1548,6 @@ contract Exchange is ExchangeCore {
           rssMetadata[4]
         );
     }
-
-     modifier callerIsUser() {
-     require(tx.origin == msg.sender, "The caller is another contract");
-    _;
-    }
-
 }
 
 contract StarBlockExchange is Exchange {
