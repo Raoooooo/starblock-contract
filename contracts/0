@@ -1,7 +1,1 @@
-{
-  "id": 0,
-  "description": "My NFT",
-  "external_url": "https://forum.openzeppelin.com/t/create-an-nft-and-deploy-to-a-public-testnet-using-truffle/2961",
-  "image": "https://twemoji.maxcdn.com/svg/1f40e.svg",
-  "name": "My NFT 0"
-}
+{"image":"https://file.starblock.io/collection/bb6d03270a457a81072ec744fbe77055.jpg","name":"HeiTextNFT01","description":"HeiTextNFT01","attributes":[{"value":"yellow","trait_type":"type"},{"value":"red","trait_type":"type"}]}
