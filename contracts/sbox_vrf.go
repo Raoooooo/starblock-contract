@@ -14,7 +14,7 @@ func main() {
 	nftWinnerList := []int{}
 
 	// SBOXRandomSeedGenerator: https://etherscan.io/address/0x8a664be336304385b2886e706828e4ee1e549d44#code
-	var contractRandomSeed = "63477085376221734204645267060198448640767645553793835987915088287774969511994"
+	var contractRandomSeed = "GET_SEED_FROM_SBOXRandomSeedGenerator_CONTRACT"
 	var nftCount = 14
 
 	// we are converting seed to md5 then int64
