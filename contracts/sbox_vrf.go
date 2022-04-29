@@ -22,12 +22,17 @@ func main() {
 	_, _ = io.WriteString(md5Seed, contractRandomSeed)
 	var seed = binary.BigEndian.Uint64(md5Seed.Sum(nil))
 	rand.Seed(int64(seed))
+	
+	
+	// this ignore list is team/investor owned cboxes.
+	// this list can be updated (please watch this repo)
+	ignoreList := []int{}
 
 	for len(nftWinnerList) < nftCount {
 		// get random sbox id between 0, 13
 		randBox := randInt(0, 13)
 		// add this sbox to winnerList
-		if !contains(nftWinnerList, randBox) {
+		if !contains(nftWinnerList, randBox) && !contains(ignoreList, randBox) {
 			nftWinnerList = append(nftWinnerList, randBox)
 		}
 	}
