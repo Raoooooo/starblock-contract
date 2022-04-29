@@ -16,7 +16,7 @@ contract SBOXRandomSeedGenerator is VRFConsumerBaseV2, Ownable {
   VRFCoordinatorV2Interface COORDINATOR;
   LinkTokenInterface LINKTOKEN;
 
-  uint256[] public sboxRandomSeedDrafted;
+  uint256[] public sboxRandomSeeds;
 
   // Your subscription ID.
   uint64 s_subscriptionId;
@@ -74,7 +74,7 @@ contract SBOXRandomSeedGenerator is VRFConsumerBaseV2, Ownable {
       revert("Invalid request ID");
     }
     uint256 randomWord = randomWords[0];
-    sboxRandomSeedDrafted.push(randomWord);
+    sboxRandomSeeds.push(randomWord);
     emit SBOXRandomSeedDrafted(randomWords.length, randomWord);
   }
 }
