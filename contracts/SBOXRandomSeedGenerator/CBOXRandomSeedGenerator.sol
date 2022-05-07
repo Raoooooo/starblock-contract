@@ -1,22 +1,58 @@
 // SPDX-License-Identifier: MIT
 
+//       CBOX Random Seed Generator
+//           _______
+//          /\ o o o\
+//         /o \ o o o\_______
+//         <    >------>   o /|
+//         \ o/  o   /_____/o|
+//          \/______/     |oo|
+//                |   o   |o/
+//                |_______|/
+//
+
+//
+//                 ..        .           .    ..
+//  @@@@&        &@@@@@@@@@@@@@@@(        @@@@@.
+//  @@@@&   .@@@@@@@@@@@@@@@@@@@@@@@@@.   @@@@@.
+//  @@@@& @@@@@@@@               @@@@@@@@ @@@@@.
+//  @@@@@@@@@@..                    ,@@@@@@@@@@.
+//  @@@@@@@@                          .@@@@@@@@.
+//  @@@@@@.                             %@@@@@@.
+//  @@@@@.                               %@@@@@.
+//  @@@@@                                 @@@@@.
+// .@@@@&              C-BOX              @@@@@
+//  @@@@@          SEED GENERATOR         @@@@@.
+//  /@@@@,                              .&@@@@..
+//   @@@@@/                             @@@@@(
+//    %@@@@@..                        .@@@@@.
+//     .@@@@@@,.                    #@@@@@@
+//       .@@@@@@@@...         . ,@@@@@@@@
+//         . @@@@@@@@@@@@@@@@@@@@@@@@&
+//               .@@@@@@@@@@@@@@@..
+
+// @creator:     ConiunIO
+// @security:    batuhan@coniun.io
+// @author:      Batuhan KATIRCI (@batuhan_katirci)
+// @website:     https://coniun.io/
+
 pragma solidity ^0.8.7;
 
-import "./LinkTokenInterface.sol";
-import "./VRFCoordinatorV2Interface.sol";
-import "./VRFConsumerBaseV2.sol";
-import "./Ownable.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/LinkTokenInterface.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract SBOXRandomSeedGenerator is VRFConsumerBaseV2, Ownable {
-  event SBOXRandomSeedDrafted(
-    uint256 indexed SBOXWeekIndex,
+contract CBOXRandomSeedGenerator is VRFConsumerBaseV2, Ownable {
+  event CBOXRandomSeedDrafted(
+    uint256 indexed CBOXWeekIndex,
     uint256 indexed RandomSeed
   );
 
   VRFCoordinatorV2Interface COORDINATOR;
   LinkTokenInterface LINKTOKEN;
 
-  uint256[] public sboxRandomSeeds;
+  uint256[] public cboxRandomSeeds;
 
   // Your subscription ID.
   uint64 s_subscriptionId;
@@ -74,7 +110,7 @@ contract SBOXRandomSeedGenerator is VRFConsumerBaseV2, Ownable {
       revert("Invalid request ID");
     }
     uint256 randomWord = randomWords[0];
-    sboxRandomSeeds.push(randomWord);
-    emit SBOXRandomSeedDrafted(randomWords.length, randomWord);
+    cboxRandomSeeds.push(randomWord);
+    emit CBOXRandomSeedDrafted(randomWords.length, randomWord);
   }
 }

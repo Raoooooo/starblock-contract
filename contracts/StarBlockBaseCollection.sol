@@ -1337,6 +1337,10 @@ contract StarBlockBaseCollection is Ownable, ERC721A, ReentrancyGuard, Pausable 
         maxBatchSize = _maxBatchSize;
     }
 
+    function setProxyRegistryAddress(address _address) public onlyOwner {
+        proxyRegistryAddress = _address;
+    }
+
     function getMaxBatchSize() public view returns (uint256) {
         return maxBatchSize;
     }
