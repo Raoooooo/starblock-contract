@@ -127,4 +127,3 @@ contract StarBlockCollection is StarBlockBaseCollection {
         }
     }
 }
-
