@@ -52,12 +52,12 @@ contract StarBlockCollection is StarBlockBaseCollection {
         uint256 maxPerAddressDuringMint_,
         uint256 quantity_
     ) internal {
-        require(quantity_ > 0, "StarBlockCollection#mintAssets quantity must greater than zero");
         require(
             _isProxyForUser(from_, _msgSender()),
             "StarBlockCollection#mintAssets: caller is not approved"
         );
-
+        require(quantity_ > 0, "StarBlockCollection#mintAssets quantity must greater than zero");
+        
         if (collectionSize_ > 0) {
             require((collectionSizeMap[collectionId_] + quantity_) <= collectionSize_, "StarBlockCollection#mintAssets reached max supply");
         }
