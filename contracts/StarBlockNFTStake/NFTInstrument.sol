@@ -2,214 +2,127 @@
 
 pragma solidity ^0.8.0;
 
-/**
- * @dev Interface of the ERC165 standard, as defined in the
- * https://eips.ethereum.org/EIPS/eip-165[EIP].
- *
- * Implementers can declare support of contract interfaces, which can then be
- * queried by others ({ERC165Checker}).
- *
- * For an implementation, see {ERC165}.
- */
-interface IERC165 {
-    /**
-     * @dev Returns true if this contract implements the interface defined by
-     * `interfaceId`. See the corresponding
-     * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[EIP section]
-     * to learn more about how these ids are created.
-     *
-     * This function call must use less than 30 000 gas.
-     */
-    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+// import "@openzeppelin/contracts/access/Ownable.sol";
+// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+// import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+interface IWrappedNFT is IERC721Metadata {
+    event SetAdmin(address _admin);
+    event Deposit(address indexed _forUser, uint256[] _tokenIds);
+    event Withdraw(address indexed _forUser, uint256[] _wnftTokenIds);
+
+    function nftContract() external view returns (IERC721Metadata);
+    function deposit(address _forUser, uint256[] memory _tokenIds) external;
+    function withdraw(address _forUser, uint256[] memory _wnftTokenIds) external;
 }
 
-/**
- * @dev Implementation of the {IERC165} interface.
- *
- * Contracts that want to implement ERC165 should inherit from this contract and override {supportsInterface} to check
- * for the additional interface id that will be supported. For example:
- *
- * ```solidity
- * function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
- *     return interfaceId == type(MyInterface).interfaceId || super.supportsInterface(interfaceId);
- * }
- * ```
- *
- * Alternatively, {ERC165Storage} provides an easier to use but more expensive implementation.
- */
-abstract contract ERC165 is IERC165 {
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IERC165).interfaceId;
+interface INFTMasterChef {
+    event Deposit(address indexed user, uint256 indexed pid, uint256[] tokenIds);
+    event Withdraw(address indexed user, uint256 indexed pid, uint256[] wnfTokenIds);
+    event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256[] wnfTokenIds);
+    event Harvest(address indexed user, uint256 indexed pid, uint256 mining, uint256 dividend);
+    event EmergencyStop(address indexed user, address to);
+    event Add(IWrappedNFT wnftContract, uint256 rewardForEachBlock, uint256 rewardPerNFTForEachBlock, uint256 startBlock, uint256 endBlock, 
+        uint256 depositFee, uint256 rewardDevRatio, bool rewardVeToken, IERC20 dividendToken, bool _withTokenTransfer, bool withUpdate);
+    event SetPoolInfo(uint256 pid, uint256 rewardForEachBlock, uint256 rewardPerNFTForEachBlock, uint256 startBlock, uint256 endBlock, bool withUpdate);
+    event ClosePool(uint256 pid, address payable to);
+    event SetPoolDividendToken(uint256 pid, IERC20 dividendToken);
+    event UpdateDevAddress(address payable devAddress);
+    event UpdateBuyAddress(address payable buyAddress);
+    event AddRewardForPool(uint256 pid, uint256 addTokenPerPool, uint256 addTokenPerBlock, bool withTokenTransfer);
+    event AddDividendRewardForPool(uint256 _pid, uint256 _addDividend);
+    event SetPoolDepositFee(uint256 pid, uint256 depositFee);
+    event SetLockBlockNumber(uint256 lockBlockNumber);
+
+    // Info of each user.
+    struct NFTInfo {
+        bool deposited;     // If the NFT is deposited.
+        uint256 rewardDebt; // Reward debt.
+        uint256 dividendDebt; // Reward debt.
     }
+
+    // Info of each pool.
+    struct PoolInfo {
+        IWrappedNFT wnftContract;// Address of LP token contract, zero represents mainnet coin pool.
+
+        uint256 rewardForEachBlock;    //Reward for each block
+        uint256 rewardPerNFTForEachBlock;    //Reward for each block
+
+        uint256 startBlock; // Reward start block.
+        uint256 endBlock;  // Reward end block.
+
+        uint256 amount;     // How many LP tokens the pool has.
+        
+        uint256 lastRewardBlock;  // Last block number that SUSHIs distribution occurs.
+        uint256 accTokenPerShare; // Accumulated tokens per share, times 1e12.
+
+        uint256 depositFee;// ETH charged when user deposit.
+        uint256 rewardDevRatio;// if reward dev when reward the farmers.
+        bool rewardVeToken;// if the reward is VeToken
+
+        IERC20 dividendToken;
+        uint256 accDividendPerShare;
+        
+    }
+
+    function poolInfo(uint256 _pid) external view returns (PoolInfo memory);
+    // function poolInfo(uint256 _pid) external returns (IWrappedNFT _wnftContract, uint256 _rewardForEachBlock, 
+    //     uint256 _rewardPerNFTForEachBlock, uint256 _startBlock, uint256 _endBlock, uint256 _amount, 
+    //     uint256 _lastRewardBlock, uint256 _accTokenPerShare, uint256 _depositFee, uint256 _rewardDevRatio, 
+    //     bool _rewardVeToken, IERC20 _dividendToken, uint256 _accDividendPerShare);
+    function poolNFTInfo(uint256 _pid, uint256 _nftTokenId) external view returns (NFTInfo memory);
+
+    function pending(uint256 _pid, uint256[] memory _wnftTokenIds) external view returns (uint256 mining, uint256 dividend);
+    function deposit(uint256 _pid, uint256[] memory _tokenIds) external payable;
+    function withdraw(uint256 _pid, uint256[] memory _wnftTokenIds) external;
+    function harvest(uint256 _pid, address _to, uint256[] memory _wnftTokenIds) external returns (uint256 mining, uint256 dividend);
 }
 
-/**
- * @dev Required interface of an ERC721 compliant contract.
- */
-interface IERC721 is IERC165 {
-    /**
-     * @dev Emitted when `tokenId` token is transferred from `from` to `to`.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-
-    /**
-     * @dev Emitted when `owner` enables `approved` to manage the `tokenId` token.
-     */
-    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
-
-    /**
-     * @dev Emitted when `owner` enables or disables (`approved`) `operator` to manage all of its assets.
-     */
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
-
-    /**
-     * @dev Returns the number of tokens in ``owner``'s account.
-     */
-    function balanceOf(address owner) external view returns (uint256 balance);
-
-    /**
-     * @dev Returns the owner of the `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function ownerOf(uint256 tokenId) external view returns (address owner);
-
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`, checking first that contract recipients
-     * are aware of the ERC721 protocol to prevent tokens from being forever locked.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must be have been allowed to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Transfers `tokenId` token from `from` to `to`.
-     *
-     * WARNING: Usage of this method is discouraged, use {safeTransferFrom} whenever possible.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) external;
-
-    /**
-     * @dev Gives permission to `to` to transfer `tokenId` token to another account.
-     * The approval is cleared when the token is transferred.
-     *
-     * Only a single account can be approved at a time, so approving the zero address clears previous approvals.
-     *
-     * Requirements:
-     *
-     * - The caller must own the token or be an approved operator.
-     * - `tokenId` must exist.
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address to, uint256 tokenId) external;
-
-    /**
-     * @dev Returns the account approved for `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    function getApproved(uint256 tokenId) external view returns (address operator);
-
-    /**
-     * @dev Approve or remove `operator` as an operator for the caller.
-     * Operators can call {transferFrom} or {safeTransferFrom} for any token owned by the caller.
-     *
-     * Requirements:
-     *
-     * - The `operator` cannot be the caller.
-     *
-     * Emits an {ApprovalForAll} event.
-     */
-    function setApprovalForAll(address operator, bool _approved) external;
-
-    /**
-     * @dev Returns if the `operator` is allowed to manage all of the assets of `owner`.
-     *
-     * See {setApprovalForAll}
-     */
-    function isApprovedForAll(address owner, address operator) external view returns (bool);
-
-    /**
-     * @dev Safely transfers `tokenId` token from `from` to `to`.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `tokenId` token must exist and be owned by `from`.
-     * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called upon a safe transfer.
-     *
-     * Emits a {Transfer} event.
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes calldata data
-    ) external;
-}
-
-
+  
 contract NFTInstrument {
 
-      
-      function canStakeQuantity(address nftContract, address owner) public view returns (uint256) {
-          require(nftContract != address(0) && owner != address(0),"NFTInstrument: nftContract address or owner is the zero address");
-          uint256 quantity = IERC721(nftContract).balanceOf(owner);
-          return quantity;
-      }
+    function getNFTMasterChefPoolInfo(address _nftMasterchef, uint256 _pid, address _owner, uint256 _maxTokenId) public view
+     returns (INFTMasterChef.PoolInfo memory poolInfo, uint256 mining, uint256 dividend, uint256 nftQuantity, uint256 wnftQuantity) 
+     {
+       require(_nftMasterchef != address(0),"NFTInstrument: nftMasterchef address is the zero address");
+       INFTMasterChef nftMasterchef = INFTMasterChef(_nftMasterchef); 
+       poolInfo = nftMasterchef.poolInfo(_pid);
 
-      function stakedQuantity(address wnftContract, address owner) public view returns (uint256) {
-          require(wnftContract != address(0) && owner != address(0),"NFTInstrument: wnftContract address or owner is the zero address");
-          uint256 quantity = IERC721(wnftContract).balanceOf(owner);
-          return quantity;
-      } 
+       if (_owner != address(0)) {
+         uint256[] memory wnftTokenIds = ownTokens(poolInfo.wnftContract, _owner, _maxTokenId);
+         require(wnftTokenIds.length > 0, "NFTInstrument:owner has no wnftToken");
+         (mining,  dividend) = nftMasterchef.pending(_pid, wnftTokenIds);
 
-      function canStakeTotalTokens(address nftContract, address owner) public view returns (uint256) {
-          require(nftContract != address(0) && owner != address(0),"NFTInstrument: nftContract address or owner is the zero address");
-          uint256 totalSupply = 10000;
-          uint256 count;
-          for (uint256 i = 0; i < totalSupply; i++) {
-               address tokenOwner = IERC721(nftContract).ownerOf(i);
-              if (tokenOwner == owner) {
-                  count++;
+         IWrappedNFT wnftContract = poolInfo.wnftContract;
+         nftQuantity = wnftContract.nftContract().balanceOf(_owner);
+
+         wnftQuantity = IERC721(poolInfo.wnftContract).balanceOf(_owner);
+       }
+
+    }
+    
+    function ownTokens(IWrappedNFT _wnftContract, address _owner, uint256 _quantity) public view returns (uint256[] memory totalTokens) {
+         require(address(_wnftContract) != address(0) && _owner != address(0) && _quantity > 0,"NFTInstrument: wnftContract address or owner is the zero address");
+        //  uint256 maxIndex;
+        //  for (uint256 i = 0; i < _quantity; i++) {
+        //        address tokenOwner = _wnftContract.ownerOf(i);
+        //       if (tokenOwner == _owner) {
+        //          maxIndex++;
+        //       }
+        //   }
+        //   require(maxIndex > 0, "NFTInstrument:owner has no wnftToken");
+          uint256 index;
+          for (uint256 i = 0; i < _quantity; i++) {
+               address tokenOwner = IWrappedNFT(_wnftContract).ownerOf(i);
+              if (tokenOwner == _owner) {
+                  totalTokens[index] = i;
+                  index++;
               }
           }
-          return count;
-      }
+          return totalTokens;
+    }
     
 }
