@@ -14,33 +14,17 @@ interface IWrappedNFT is IERC721Metadata {
     event Deposit(address indexed _forUser, uint256[] _tokenIds);
     event Withdraw(address indexed _forUser, uint256[] _wnftTokenIds);
 
-    function nftContract() external view returns (IERC721Metadata);
+    function nft() external view returns (IERC721Metadata);
     function deposit(address _forUser, uint256[] memory _tokenIds) external;
     function withdraw(address _forUser, uint256[] memory _wnftTokenIds) external;
 }
 
 interface INFTMasterChef {
-    event Deposit(address indexed user, uint256 indexed pid, uint256[] tokenIds);
-    event Withdraw(address indexed user, uint256 indexed pid, uint256[] wnfTokenIds);
-    event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256[] wnfTokenIds);
-    event Harvest(address indexed user, uint256 indexed pid, uint256 mining, uint256 dividend);
-    event EmergencyStop(address indexed user, address to);
-    event Add(IWrappedNFT wnftContract, uint256 rewardForEachBlock, uint256 rewardPerNFTForEachBlock, uint256 startBlock, uint256 endBlock, 
-        uint256 depositFee, uint256 rewardDevRatio, bool rewardVeToken, IERC20 dividendToken, bool _withTokenTransfer, bool withUpdate);
-    event SetPoolInfo(uint256 pid, uint256 rewardForEachBlock, uint256 rewardPerNFTForEachBlock, uint256 startBlock, uint256 endBlock, bool withUpdate);
-    event ClosePool(uint256 pid, address payable to);
-    event SetPoolDividendToken(uint256 pid, IERC20 dividendToken);
-    event UpdateDevAddress(address payable devAddress);
-    event UpdateBuyAddress(address payable buyAddress);
-    event AddRewardForPool(uint256 pid, uint256 addTokenPerPool, uint256 addTokenPerBlock, bool withTokenTransfer);
-    event AddDividendRewardForPool(uint256 _pid, uint256 _addDividend);
-    event SetPoolDepositFee(uint256 pid, uint256 depositFee);
-    event SetLockBlockNumber(uint256 lockBlockNumber);
-
     // Info of each user.
     struct NFTInfo {
         bool deposited;     // If the NFT is deposited.
         uint256 rewardDebt; // Reward debt.
+
         uint256 dividendDebt; // Reward debt.
     }
 
@@ -65,14 +49,12 @@ interface INFTMasterChef {
 
         IERC20 dividendToken;
         uint256 accDividendPerShare;
-        
-    }
 
+        // mapping (uint256 => NFTInfo) nfts;
+    }
+    
     function poolInfo(uint256 _pid) external view returns (PoolInfo memory);
-    // function poolInfo(uint256 _pid) external returns (IWrappedNFT _wnftContract, uint256 _rewardForEachBlock, 
-    //     uint256 _rewardPerNFTForEachBlock, uint256 _startBlock, uint256 _endBlock, uint256 _amount, 
-    //     uint256 _lastRewardBlock, uint256 _accTokenPerShare, uint256 _depositFee, uint256 _rewardDevRatio, 
-    //     bool _rewardVeToken, IERC20 _dividendToken, uint256 _accDividendPerShare);
+    
     function poolNFTInfo(uint256 _pid, uint256 _nftTokenId) external view returns (NFTInfo memory);
 
     function pending(uint256 _pid, uint256[] memory _wnftTokenIds) external view returns (uint256 mining, uint256 dividend);
@@ -80,15 +62,13 @@ interface INFTMasterChef {
     function withdraw(uint256 _pid, uint256[] memory _wnftTokenIds) external;
     function harvest(uint256 _pid, address _to, uint256[] memory _wnftTokenIds) external returns (uint256 mining, uint256 dividend);
 }
-
   
-contract NFTInstrument {
-
-    function getNFTMasterChefPoolInfo(address _nftMasterchef, uint256 _pid, address _owner, uint256 _maxTokenId) public view
+contract NFTUtils {
+    function getNFTMasterChefInfos(INFTMasterChef _nftMasterchef, uint256 _pid, address _owner, uint256 _maxTokenId) public view
      returns (INFTMasterChef.PoolInfo memory poolInfo, uint256 mining, uint256 dividend, uint256 nftQuantity, uint256 wnftQuantity) 
      {
-       require(_nftMasterchef != address(0),"NFTInstrument: nftMasterchef address is the zero address");
-       INFTMasterChef nftMasterchef = INFTMasterChef(_nftMasterchef); 
+       require(address(_nftMasterchef) != address(0),"NFTUtils: nftMasterchef address is the zero address");
+       INFTMasterChef nftMasterchef = _nftMasterchef; 
        poolInfo = nftMasterchef.poolInfo(_pid);
 
        if (_owner != address(0)) {
@@ -97,32 +77,28 @@ contract NFTInstrument {
          (mining,  dividend) = nftMasterchef.pending(_pid, wnftTokenIds);
 
          IWrappedNFT wnftContract = poolInfo.wnftContract;
-         nftQuantity = wnftContract.nftContract().balanceOf(_owner);
+         nftQuantity = wnftContract.nft().balanceOf(_owner);
 
-         wnftQuantity = IERC721(poolInfo.wnftContract).balanceOf(_owner);
+         wnftQuantity = poolInfo.wnftContract.balanceOf(_owner);
        }
-
     }
     
-    function ownTokens(IWrappedNFT _wnftContract, address _owner, uint256 _quantity) public view returns (uint256[] memory totalTokens) {
-         require(address(_wnftContract) != address(0) && _owner != address(0) && _quantity > 0,"NFTInstrument: wnftContract address or owner is the zero address");
+    function ownTokens(IERC721 _nftContract, address _owner, uint256 _maxTokenId) public view returns (uint256[] memory totalTokens) {
+         require(address(_nftContract) != address(0) && _owner != address(0) && _maxTokenId > 0,"NFTUtils: nftContract address or owner is the zero address");
         //  uint256 maxIndex;
         //  for (uint256 i = 0; i < _quantity; i++) {
-        //        address tokenOwner = _wnftContract.ownerOf(i);
+        //        address tokenOwner = _nftContract.ownerOf(i);
         //       if (tokenOwner == _owner) {
         //          maxIndex++;
         //       }
         //   }
-        //   require(maxIndex > 0, "NFTInstrument:owner has no wnftToken");
+        //   require(maxIndex > 0, "NFTUtils: owner has no wnftToken");
           uint256 index;
-          for (uint256 i = 0; i < _quantity; i++) {
-               address tokenOwner = IWrappedNFT(_wnftContract).ownerOf(i);
+          for (uint256 i = 0; i < _maxTokenId; i++) {
+               address tokenOwner = _nftContract.ownerOf(i);
               if (tokenOwner == _owner) {
-                  totalTokens[index] = i;
-                  index++;
+                  totalTokens[index ++] = i;
               }
           }
-          return totalTokens;
     }
-    
 }
