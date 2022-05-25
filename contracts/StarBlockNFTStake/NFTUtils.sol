@@ -2,13 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts/access/Ownable.sol";
-// import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-// import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./wnft_interfaces.sol";
 
 interface INFTMasterChef {
@@ -88,7 +84,7 @@ contract NFTUtils {
          require(maxIndex > 0, "NFTUtils: owner has no token");
          totalTokens = new uint256[](maxIndex);
          uint256 index;
-         for (uint256 i  = 0; i <= _maxTokenId; i++) {
+         for (uint256 i = 0; i <= _maxTokenId; i++) {
              if (_wnftContract.exists(i)) {
                  address tokenOwner = _wnftContract.ownerOf(i);
                  if (tokenOwner == _owner) {
