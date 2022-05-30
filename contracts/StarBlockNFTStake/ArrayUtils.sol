@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// StarBlock Contracts
+// StarBlock DAO Contracts
 
 pragma solidity ^0.8.0;
 

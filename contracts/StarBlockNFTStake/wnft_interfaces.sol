@@ -1,39 +1,52 @@
 // SPDX-License-Identifier: MIT
-// StarBlock Contracts
+// StarBlock DAO Contracts
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 
-interface IWrappedNFT is IERC2981, IERC721Metadata {
-    event SetAdmin(address _admin);
+interface IERC2981Mutable is IERC165, IERC2981 {
+    function setDefaultRoyalty(address _receiver, uint96 _feeNumerator) external;
+    function deleteDefaultRoyalty() external;
+}
+
+interface IBaseWrappedNFT is IERC165, IERC2981Mutable, IERC721Receiver, IERC721, IERC721Metadata {
+    event DelegatorChanged(address _admin);
     event Deposit(address indexed _forUser, uint256[] _tokenIds);
     event Withdraw(address indexed _forUser, uint256[] _wnftTokenIds);
 
-    function admin() external view returns (address);
-
     function nft() external view returns (IERC721Metadata);
+    function factory() external view returns (IWrappedNFTFactory);
+
     function deposit(address _forUser, uint256[] memory _tokenIds) external;
     function withdraw(address _forUser, uint256[] memory _wnftTokenIds) external;
 
-    function totalSupply() external view returns (uint256);
     function exists(uint256 _tokenId) external view returns (bool);
+    
+    function delegator() external view returns (address);
+    function setDelegator(address _delegator) external;
+    
+    function isEnumerable() external view returns (bool);
+}
 
-    function setDefaultRoyalty(address _receiver, uint96 _feeNumerator) external;
+interface IWrappedNFT is IBaseWrappedNFT {
+    function totalSupply() external view returns (uint256);
+}
+
+interface IWrappedNFTEnumerable is IWrappedNFT, IERC721Enumerable {
+    function totalSupply() external view override(IWrappedNFT, IERC721Enumerable) returns (uint256);
 }
 
 interface IWrappedNFTFactory {
-    event WrappedNFTDeployed(IERC721Metadata nft, IWrappedNFT wnft);
-    event WNFTOwnerChanged(address wnftOwner);
-    event WNFTAdminChanged(address wnftAdmin);
-    event WNFTRoyaltyInfoChanged(address _wnftRoyaltyReceiver, uint96 _wnftRoyaltyFeeNumerator);
+    event WrappedNFTDeployed(IERC721Metadata nft, IWrappedNFT wnft, bool isEnumerable);
+    event WNFTDelegatorChanged(address wnftDelegator);
 
-    function wnftOwner() external view returns (address);
-    function wnftAdmin() external view returns (address);
-    function wnftRoyaltyReceiver() external view returns (address);
-    function wnftRoyaltyFeeNumerator() external view returns (uint96);
+    function wnftDelegator() external view returns (address);
 
-    function deployWrappedNFT(IERC721Metadata nft) external returns (IWrappedNFT);
+    function deployWrappedNFT(IERC721Metadata nft, bool _isEnumerable) external returns (IWrappedNFT);
     function wnfts(IERC721Metadata nft) external view returns (IWrappedNFT);
     function wnftsNumber() external view returns (uint);
 }
