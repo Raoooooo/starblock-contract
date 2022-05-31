@@ -54,7 +54,7 @@ interface INFTMasterChef {
     function poolsRewardInfos(uint256 _pid, uint256 _rewardInfoId) external view returns (RewardInfo memory rewardInfo);
     function poolNFTInfos(uint256 _pid, uint256 _nftTokenId) external view returns (bool _deposited, uint256 _rewardDebt, uint256 _dividendDebt);
 
-    function getPoolCurrentReward(uint256 _pid) external view returns (RewardInfo memory rewardInfo);
+    function getPoolCurrentReward(uint256 _pid) external view returns (RewardInfo memory _rewardInfo, uint256 _currentRewardIndex);
     function getPoolEndBlock(uint256 _pid) external view returns (uint256 _poolEndBlock);
     function isPoolEnd(uint256 _pid) external view returns (bool);
 

@@ -14,7 +14,7 @@ interface IERC2981Mutable is IERC165, IERC2981 {
 }
 
 interface IBaseWrappedNFT is IERC165, IERC2981Mutable, IERC721Receiver, IERC721, IERC721Metadata {
-    event DelegatorChanged(address _admin);
+    event DelegatorChanged(address _delegator);
     event Deposit(address indexed _forUser, uint256[] _tokenIds);
     event Withdraw(address indexed _forUser, uint256[] _wnftTokenIds);
 
@@ -41,12 +41,12 @@ interface IWrappedNFTEnumerable is IWrappedNFT, IERC721Enumerable {
 }
 
 interface IWrappedNFTFactory {
-    event WrappedNFTDeployed(IERC721Metadata nft, IWrappedNFT wnft, bool isEnumerable);
-    event WNFTDelegatorChanged(address wnftDelegator);
+    event WrappedNFTDeployed(IERC721Metadata _nft, IWrappedNFT _wnft, bool _isEnumerable);
+    event WNFTDelegatorChanged(address _wnftDelegator);
 
     function wnftDelegator() external view returns (address);
 
-    function deployWrappedNFT(IERC721Metadata nft, bool _isEnumerable) external returns (IWrappedNFT);
-    function wnfts(IERC721Metadata nft) external view returns (IWrappedNFT);
+    function deployWrappedNFT(IERC721Metadata _nft, bool _isEnumerable) external returns (IWrappedNFT);
+    function wnfts(IERC721Metadata _nft) external view returns (IWrappedNFT);
     function wnftsNumber() external view returns (uint);
 }

@@ -21,14 +21,15 @@ interface IHarvestStrategy {
 
 interface INFTMasterChef {
     event AddPoolInfo(IERC721Metadata nft, IWrappedNFT wnft, uint256 startBlock, 
-                    RewardInfo[] _rewards, uint256 depositFee, IERC20 _dividendToken, bool withUpdate);
-    event SetStartBlock(uint256 pid, uint256 startBlock, bool withUpdate);
+                    RewardInfo[] rewards, uint256 depositFee, IERC20 dividendToken, bool withUpdate);
+    event SetStartBlock(uint256 pid, uint256 startBlock);
+    event UpdatePoolReward(uint256 pid, uint256 rewardIndex, uint256 rewardBlock, uint256 rewardForEachBlock, uint256 rewardPerNFTForEachBlock);
     event SetPoolDepositFee(uint256 pid, uint256 depositFee);
     event SetHarvestStrategy(IHarvestStrategy harvestStrategy);
     event SetPoolDividendToken(uint256 pid, IERC20 dividendToken);
 
     event AddTokenRewardForPool(uint256 pid, uint256 addTokenPerPool, uint256 addTokenPerBlock, bool withTokenTransfer);
-    event AddDividendForPool(uint256 _pid, uint256 _addDividend);
+    event AddDividendForPool(uint256 pid, uint256 addDividend);
 
     event UpdateDevAddress(address payable devAddress);
     event EmergencyStop(address indexed user, address to);
@@ -37,7 +38,7 @@ interface INFTMasterChef {
     event Deposit(address indexed user, uint256 indexed pid, uint256[] tokenIds);
     event Withdraw(address indexed user, uint256 indexed pid, uint256[] wnfTokenIds);
     event WithdrawWithoutHarvest(address indexed user, uint256 indexed pid, uint256[] wnfTokenIds);
-    event Harvest(address indexed user, uint256 indexed pid, uint256[] _wnftTokenIds, 
+    event Harvest(address indexed user, uint256 indexed pid, uint256[] wnftTokenIds, 
                     uint256 mining, uint256 dividend);
 
     // Info of each user.
@@ -84,7 +85,7 @@ interface INFTMasterChef {
     function poolsRewardInfos(uint256 _pid, uint256 _rewardInfoId) external view returns (uint256 _rewardBlock, uint256 _rewardForEachBlock, uint256 _rewardPerNFTForEachBlock);
     function poolNFTInfos(uint256 _pid, uint256 _nftTokenId) external view returns (bool _deposited, uint256 _rewardDebt, uint256 _dividendDebt);
 
-    function getPoolCurrentReward(uint256 _pid) external view returns (RewardInfo memory rewardInfo);
+    function getPoolCurrentReward(uint256 _pid) external view returns (RewardInfo memory _rewardInfo, uint256 _currentRewardIndex);
     function getPoolEndBlock(uint256 _pid) external view returns (uint256 _poolEndBlock);
     function isPoolEnd(uint256 _pid) external view returns (bool);
 
@@ -202,7 +203,9 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < _rewards.length; i++) {
             RewardInfo memory reward = _rewards[i];
             require(reward.rewardBlock > 0, "NFTMasterChef: rewardBlock error!");
-            require((rewardForEachBlockSet && reward.rewardForEachBlock > 0) || (!rewardForEachBlockSet && reward.rewardPerNFTForEachBlock > 0), "NFTMasterChef: setting error!");
+            require(!(reward.rewardForEachBlock > 0 && reward.rewardPerNFTForEachBlock > 0), "NFTMasterChef: reward can only set one!");
+            require((rewardForEachBlockSet && reward.rewardForEachBlock > 0) || (!rewardForEachBlockSet && reward.rewardPerNFTForEachBlock > 0)
+                    || (reward.rewardForEachBlock == 0 && reward.rewardPerNFTForEachBlock == 0), "NFTMasterChef: setting error!");
             rewards.push(RewardInfo({
                 rewardBlock: reward.rewardBlock,
                 rewardForEachBlock: reward.rewardForEachBlock,
@@ -211,16 +214,37 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         }
     }
 
+    function updatePoolReward(uint256 _pid, uint256 _rewardIndex, uint256 _rewardBlock, uint256 _rewardForEachBlock, uint256 _rewardPerNFTForEachBlock) 
+                            external validatePoolByPid(_pid) onlyOwner nonReentrant {
+        PoolInfo storage pool = poolInfos[_pid];
+        require(!isPoolEnd(_pid), "NFTMasterChef: pool is end!");
+        require(_rewardBlock > 0, "NFTMasterChef: rewardBlock error!");
+        require(_rewardIndex < poolsRewardInfos[_pid].length, "NFTMasterChef: _rewardIndex not exists!");
+        (, uint256 _currentRewardIndex) = getPoolCurrentReward(_pid);
+        require(_rewardIndex >= _currentRewardIndex, "NFTMasterChef: _rewardIndex error!");
+        RewardInfo storage reward = poolsRewardInfos[_pid][_rewardIndex];
+        require(_rewardBlock >= reward.rewardBlock, "NFTMasterChef: _rewardBlock error!");
+        require(!(_rewardForEachBlock > 0 && _rewardPerNFTForEachBlock > 0), "NFTMasterChef: reward can only set one!");
+        require((reward.rewardForEachBlock > 0 && _rewardForEachBlock > 0) || (reward.rewardPerNFTForEachBlock > 0 && _rewardPerNFTForEachBlock > 0) 
+                || (_rewardForEachBlock == 0 && _rewardPerNFTForEachBlock == 0), "NFTMasterChef: invalid parameters!");
+        updatePool(_pid);
+        if(_rewardIndex == _currentRewardIndex){
+            pool.currentRewardEndBlock = pool.currentRewardEndBlock + _rewardBlock - reward.rewardBlock;
+        }
+        reward.rewardBlock = _rewardBlock;
+        reward.rewardForEachBlock = _rewardForEachBlock;
+        reward.rewardPerNFTForEachBlock = _rewardPerNFTForEachBlock;
+        
+        emit UpdatePoolReward(_pid, _rewardIndex, _rewardBlock, _rewardForEachBlock, _rewardPerNFTForEachBlock);
+    }
+
     // Update the given pool's pool info. Can only be called by the owner.
-    function setStartBlock(uint256 _pid, uint256 _startBlock, bool _withUpdate) external validatePoolByPid(_pid) onlyOwner nonReentrant {
+    function setStartBlock(uint256 _pid, uint256 _startBlock) external validatePoolByPid(_pid) onlyOwner nonReentrant {
         PoolInfo storage pool = poolInfos[_pid];
         require(block.number < pool.startBlock, "NFTMasterChef: can not change start block of started pool!");
         require(block.number < _startBlock, "NFTMasterChef: _startBlock must be less than block.number!");
-        if (_withUpdate) {
-            massUpdatePools();
-        }
         pool.startBlock = _startBlock;
-        emit SetStartBlock(_pid, _startBlock, _withUpdate);
+        emit SetStartBlock(_pid, _startBlock);
     }
 
     function isPoolEnd(uint256 _pid) public view returns (bool) {
@@ -237,21 +261,20 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         }
     }
 
-    function getPoolCurrentReward(uint256 _pid) external view returns (RewardInfo memory rewardInfo){
+    function getPoolCurrentReward(uint256 _pid) public view returns (RewardInfo memory _rewardInfo, uint256 _currentRewardIndex){
         PoolInfo storage pool = poolInfos[_pid];
-        uint256 poolCurrentRewardIndex = pool.currentRewardIndex;
+        _currentRewardIndex = pool.currentRewardIndex;
         uint256 poolCurrentRewardEndBlock = pool.currentRewardEndBlock;
         uint256 poolRewardNumber = poolsRewardInfos[_pid].length;
-        RewardInfo storage reward = poolsRewardInfos[_pid][poolCurrentRewardIndex];
+        _rewardInfo = poolsRewardInfos[_pid][_currentRewardIndex];
         // Check whether to adjust multipliers and reward per block
-        while ((block.number > poolCurrentRewardEndBlock) && (poolCurrentRewardIndex < (poolRewardNumber - 1))) {
+        while ((block.number > poolCurrentRewardEndBlock) && (_currentRewardIndex < (poolRewardNumber - 1))) {
             // Update rewards per block
-            poolCurrentRewardIndex ++;
-            reward = poolsRewardInfos[_pid][poolCurrentRewardIndex];
+            _currentRewardIndex ++;
+            _rewardInfo = poolsRewardInfos[_pid][_currentRewardIndex];
             // Adjust the end block
-            poolCurrentRewardEndBlock = poolCurrentRewardEndBlock.add(reward.rewardBlock);
+            poolCurrentRewardEndBlock = poolCurrentRewardEndBlock.add(_rewardInfo.rewardBlock);
         }
-        return reward;
     }
 
     // Update the given pool's pool info. Can only be called by the owner.
@@ -285,13 +308,13 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         return 0;
     }
 
-    function _getMultiplier(uint256 _lastRewardBlock, uint256 _currentRewardEndBlock) internal view returns (uint256 multiplier) {
+    function _getMultiplier(uint256 _lastRewardBlock, uint256 _currentRewardEndBlock) internal view returns (uint256 _multiplier) {
         if(block.number < _lastRewardBlock){
             return 0;
         }else if (block.number > _currentRewardEndBlock){
-            multiplier = getMultiplier(_lastRewardBlock, _currentRewardEndBlock);
+            _multiplier = getMultiplier(_lastRewardBlock, _currentRewardEndBlock);
         }else{
-            multiplier = getMultiplier(_lastRewardBlock, block.number);
+            _multiplier = getMultiplier(_lastRewardBlock, block.number);
         }
     }
 
@@ -325,6 +348,13 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         }
         if (pool.amount == 0) {
             pool.lastRewardBlock = block.number;
+            // update current reward index
+            while ((pool.lastRewardBlock > pool.currentRewardEndBlock) && (pool.currentRewardIndex < (poolsRewardInfos[_pid].length - 1))) {
+                // Update rewards per block
+                pool.currentRewardIndex ++;
+                // Adjust the end block
+                pool.currentRewardEndBlock = pool.currentRewardEndBlock.add(reward.rewardBlock);
+            }
             return;
         }
         uint256 multiplier = _getMultiplier(pool.lastRewardBlock, pool.currentRewardEndBlock);
@@ -422,8 +452,8 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         uint256 temp;
         NFTInfo storage nft;
         for(uint256 i = 0; i < _wnftTokenIds.length; i ++){
-            uint256 tokenId = _wnftTokenIds[i];
-            nft = nfts[tokenId];
+            uint256 wnftTokenId = _wnftTokenIds[i];
+            nft = nfts[wnftTokenId];
             if(nft.deposited == true){
                 // if(reward.rewardPerNFTForEachBlock > 0){
                 //     uint256 multiplier = 0;
@@ -509,19 +539,19 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         // _harvest(_pid, msg.sender, _wnftTokenIds, true);
         PoolInfo storage pool = poolInfos[_pid];
         mapping(uint256 => NFTInfo) storage nfts = poolNFTInfos[_pid];
-        uint256 tokenId;
+        uint256 wnftTokenId;
         NFTInfo storage nft;
         uint256 withdrawNumber;
         for(uint256 i = 0; i < _wnftTokenIds.length; i ++){
-            tokenId = _wnftTokenIds[i];
-            require(pool.wnft.ownerOf(tokenId) == msg.sender, "NFTMasterChef: can not withdraw nft now owned!");
-            nft = nfts[tokenId];
+            wnftTokenId = _wnftTokenIds[i];
+            require(pool.wnft.ownerOf(wnftTokenId) == msg.sender, "NFTMasterChef: can not withdraw nft now owned!");
+            nft = nfts[wnftTokenId];
             if(nft.deposited == true){
                 withdrawNumber ++;
                 nft.deposited = false;
-                nft.rewardDebt = 0;
-                nft.dividendDebt = 0;
             }
+            nft.rewardDebt = 0;
+            nft.dividendDebt = 0;
         }
         pool.wnft.withdraw(msg.sender, _wnftTokenIds);
         pool.amount = pool.amount.sub(withdrawNumber);
@@ -551,17 +581,17 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
             _forUser = msg.sender;
         }
         require(canHarvest(_pid, _forUser, _wnftTokenIds), "NFTMasterChef: can not harvest!");
-        PoolInfo storage pool =  poolInfos[_pid];
         updatePool(_pid);
+        PoolInfo storage pool =  poolInfos[_pid];
         mapping(uint256 => NFTInfo) storage nfts = poolNFTInfos[_pid];
         // RewardInfo storage reward = poolsRewardInfos[_pid][pool.currentRewardIndex];
-        uint256 tokenId;
+        uint256 wnftTokenId;
         NFTInfo storage nft;
         uint256 temp = 0;
         for(uint256 i = 0; i < _wnftTokenIds.length; i ++){
-            tokenId = _wnftTokenIds[i];
-            nft = nfts[tokenId];
-            require(pool.wnft.ownerOf(tokenId) == _forUser, "NFTMasterChef: can not harvest nft now owned!");
+            wnftTokenId = _wnftTokenIds[i];
+            nft = nfts[wnftTokenId];
+            require(pool.wnft.ownerOf(wnftTokenId) == _forUser, "NFTMasterChef: can not harvest nft now owned!");
             if(nft.deposited == true){
                 // _mining = user.amount.mul(pool.accSushiPerShare).div(ACC_TOKEN_PRECISION).sub(user.rewardDebt);
                 // if(reward.rewardPerNFTForEachBlock > 0){
@@ -632,10 +662,6 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         }
         emit ClosePool(_pid, _to);
     }
-    
-    // function safeTransferTokenFromThis(IERC20 _token, address _to, uint256 _amount) public onlyOwner nonReentrant {
-    //     _safeTransferTokenFromThis(_token, _to, _amount);
-    // }
 
     function _safeTransferTokenFromThis(IERC20 _token, address _to, uint256 _amount) internal {
         uint256 bal = _token.balanceOf(address(this));
@@ -653,42 +679,6 @@ contract NFTMasterChef is INFTMasterChef, Ownable, ReentrancyGuard {
         devAddress = _devAddress;
         emit UpdateDevAddress(_devAddress);
     }
-
-    // Add reward for pool from the current block or start block, not allow to remove token reward for mining
-    // function addTokenRewardForPool(uint256 _pid, uint256 _addTokenPerPool, uint256 _addTokenPerNFTEachBlock, bool _withTokenTransfer) 
-    //     external validatePoolByPid(_pid) onlyOwner nonReentrant {
-
-    //     require(_addTokenPerPool > 0 || _addTokenPerNFTEachBlock > 0, "NFTMasterChef: add token must be greater than zero!");
-    //     PoolInfo storage pool = poolInfos[_pid];
-    //     require((pool.rewardForEachBlock > 0 && _addTokenPerPool > 0) || (pool.rewardPerNFTForEachBlock > 0 && _addTokenPerNFTEachBlock > 0), 
-    //             "NFTMasterChef: add token error!");
-    //     require(block.number <= pool.currentRewardEndBlock, "NFTMasterChef: pool is end!");
-    //     updatePool(_pid);
-    //     if(_addTokenPerPool > 0){
-    //         uint256 addTokenPerBlock;
-    //         uint256 addTokenPerPool = _addTokenPerPool;
-    //         uint256 start = block.number;
-    //         uint256 end = pool.currentRewardEndBlock;
-    //         if(start < pool.startBlock){
-    //             start = pool.startBlock;
-    //         }
-    //         uint256 blockNumber = end.sub(start);
-    //         if(blockNumber == 0){
-    //             blockNumber = 1;
-    //         }
-    //         if(addTokenPerBlock == 0){
-    //             addTokenPerBlock = _addTokenPerPool.div(blockNumber);
-    //         }
-    //         addTokenPerPool = addTokenPerBlock.mul(blockNumber);
-    //         pool.rewardForEachBlock = pool.rewardForEachBlock.add(addTokenPerBlock);
-    //         if(_withTokenTransfer){
-    //             token.safeTransferFrom(msg.sender, address(this), addTokenPerPool);
-    //         }
-    //     }else{
-    //         pool.rewardPerNFTForEachBlock = pool.rewardPerNFTForEachBlock.add(_addTokenPerNFTEachBlock);
-    //     }
-    //     emit AddTokenRewardForPool(_pid, _addTokenPerPool, _addTokenPerNFTEachBlock, _withTokenTransfer);
-    // }
 
     function addDividendForPool(uint256 _pid, uint256 _addDividend) external validatePoolByPid(_pid) onlyOwner nonReentrant {
         PoolInfo storage pool = poolInfos[_pid];

@@ -20,7 +20,6 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
 
     IWrappedNFTFactory public immutable factory;// can not changed
     IERC721Metadata public immutable nft;
-    bool public isEnumerable;
 
     address public delegator; //who can help user to deposit and withdraw NFT, need user to approve
 
@@ -41,9 +40,9 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC721, ERC2981) returns (bool) {
-        return interfaceId == type(IBaseWrappedNFT).interfaceId || interfaceId == type(IERC721Receiver).interfaceId 
-                || interfaceId == type(IERC2981Mutable).interfaceId || ERC721.supportsInterface(interfaceId) || ERC2981.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 _interfaceId) public view virtual override(IERC165, ERC721, ERC2981) returns (bool) {
+        return _interfaceId == type(IBaseWrappedNFT).interfaceId || _interfaceId == type(IERC721Receiver).interfaceId 
+                || _interfaceId == type(IERC2981Mutable).interfaceId || ERC721.supportsInterface(_interfaceId) || ERC2981.supportsInterface(_interfaceId);
     }
 
     //allow delegator to zero
@@ -114,11 +113,7 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
 
         emit Withdraw(_forUser, _wnftTokenIds);
     }
-
-    // function _baseURI() internal view virtual override returns (string memory) {
-    //     return nft.baseURI();
-    // }
-
+    
     /**
      * @dev See {IERC721Metadata-name}.
      */
@@ -171,6 +166,10 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
     function deleteDefaultRoyalty() external onlyOwner nonReentrant {
         _deleteDefaultRoyalty();
     }
+
+    function isEnumerable() external view virtual returns (bool) {
+        return false;
+    }
 }
 
 //add total supply for etherscan get
@@ -180,14 +179,14 @@ contract WrappedNFT is IWrappedNFT, BaseWrappedNFT {
     constructor(
         IERC721Metadata _nft
     ) BaseWrappedNFT(_nft) {
-        isEnumerable = false;
+
     }
     
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, BaseWrappedNFT) returns (bool) {
-        return interfaceId == type(IWrappedNFT).interfaceId || BaseWrappedNFT.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 _interfaceId) public view virtual override(IERC165, BaseWrappedNFT) returns (bool) {
+        return _interfaceId == type(IWrappedNFT).interfaceId || BaseWrappedNFT.supportsInterface(_interfaceId);
     }
 
     /**
@@ -227,14 +226,14 @@ contract WrappedNFTEnumerable is IWrappedNFTEnumerable, WrappedNFT, ERC721Enumer
     constructor(
         IERC721Metadata _nft
     ) WrappedNFT(_nft) {
-        isEnumerable = true;
+
     }
     
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, WrappedNFT, ERC721Enumerable) returns (bool) {
-        return interfaceId == type(IWrappedNFTEnumerable).interfaceId || WrappedNFT.supportsInterface(interfaceId) || ERC721Enumerable.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 _interfaceId) public view virtual override(IERC165, WrappedNFT, ERC721Enumerable) returns (bool) {
+        return _interfaceId == type(IWrappedNFTEnumerable).interfaceId || WrappedNFT.supportsInterface(_interfaceId) || ERC721Enumerable.supportsInterface(_interfaceId);
     }
 
     function _beforeTokenTransfer(
@@ -269,6 +268,10 @@ contract WrappedNFTEnumerable is IWrappedNFTEnumerable, WrappedNFT, ERC721Enumer
     function totalSupply() public view override(IWrappedNFTEnumerable, ERC721Enumerable, WrappedNFT) returns (uint256){
         return ERC721Enumerable.totalSupply();
     }
+
+    function isEnumerable() external view virtual override returns (bool) {
+        return true;
+    }
 }
 
 //support deploy 2 WNFT: ERC721 and ERC721Enumerable implementation.
@@ -278,23 +281,22 @@ contract WrappedNFTFactory is IWrappedNFTFactory, Ownable, ReentrancyGuard {
     mapping(IERC721Metadata => IWrappedNFT) public wnfts;
     uint256 public wnftsNumber;
 
-    function deployWrappedNFT(IERC721Metadata _nft, bool _isEnumerable) external onlyOwner nonReentrant returns (IWrappedNFT wnft) {
+    function deployWrappedNFT(IERC721Metadata _nft, bool _isEnumerable) external onlyOwner nonReentrant returns (IWrappedNFT _wnft) {
         require(address(_nft) != address(0), "WrappedNFTFactory: _nft can not be zero!");
         require(address(wnfts[_nft]) == address(0), "WrappedNFTFactory: wnft has been deployed!");
         // require(bytes(_nft.name()).length > 0 && bytes(_nft.symbol()).length > 0, "WrappedNFT: name and symbol must not be empty!");
         if(_isEnumerable){
-            wnft = new WrappedNFTEnumerable(_nft);
+            _wnft = new WrappedNFTEnumerable(_nft);
         }else{
-            wnft = new WrappedNFT(_nft);
+            _wnft = new WrappedNFT(_nft);
         }
         if(wnftDelegator != address(0)){
-            wnft.setDelegator(wnftDelegator);
+            _wnft.setDelegator(wnftDelegator);
         }
-        Ownable(address(wnft)).transferOwnership(owner());
-        //TODO Test open it
-        wnfts[_nft] = wnft;
+        Ownable(address(_wnft)).transferOwnership(owner());
+        wnfts[_nft] = _wnft;
         wnftsNumber ++;
-        emit WrappedNFTDeployed(_nft, wnft, _isEnumerable);
+        emit WrappedNFTDeployed(_nft, _wnft, _isEnumerable);
     }
     
     //allow wnftDelegator to zero

@@ -25,7 +25,7 @@ contract Azuki is Ownable, ERC721A, ReentrancyGuard {
   mapping(address => uint256) public allowlist;
 
   constructor(
-  ) ERC721A("Azuki0530", "AZUKI530", 1000, 100000) {
+  ) ERC721A("Azuki0531E", "Azuki0531E", 1000, 100000) {
     maxPerAddressDuringMint = 1000;
     amountForAuctionAndDev = 90000;
     amountForDevs = 10000;
