@@ -15,7 +15,7 @@ contract TestToken is ERC20 {
     /**
      * @dev Constructor that gives msg.sender all of existing tokens.
      */
-    constructor(uint256 _totalToken) public ERC20("Test0520", "TTT") {
+    constructor(uint256 _totalToken) public ERC20("STB", "STB") {
         _mint(msg.sender, _totalToken * (10 ** uint256(decimals())));
     }
 }

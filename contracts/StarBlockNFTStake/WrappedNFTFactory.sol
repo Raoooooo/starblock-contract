@@ -23,9 +23,8 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
 
     address public delegator; //who can help user to deposit and withdraw NFT, need user to approve
 
-    //only delegator can deposit or withdraw for other user.
+    //only user self and delegator can deposit or withdraw for user.
     modifier userSelfOrDelegator(address _forUser) {
-        // require(msg.sender == delegator || (_forUser == address(0) || _forUser == msg.sender), "WrappedNFT: not allowed!");
         require(msg.sender == delegator || (_forUser == address(0) || _forUser == msg.sender), "BaseWrappedNFT: not allowed!");
         _;
     }
@@ -45,8 +44,8 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
                 || _interfaceId == type(IERC2981Mutable).interfaceId || ERC721.supportsInterface(_interfaceId) || ERC2981.supportsInterface(_interfaceId);
     }
 
-    //allow delegator to zero
     function setDelegator(address _delegator) external onlyOwner nonReentrant {
+        //allow delegator to be zero
         delegator = _delegator;
         emit DelegatorChanged(_delegator);
     }
@@ -56,16 +55,6 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
         require(!_tokenIds.hasDuplicate(), "BaseWrappedNFT: tokenIds can not contain duplicate ones!");
     }
 
-    /**
-     * @dev Returns the owner of the `tokenId` token.
-     *
-     * Requirements:
-     *
-     * - `tokenId` must exist.
-     */
-    // function ownerOf(uint256 tokenId) external view returns (address owner);
-
-    // function deposit(address _forUser, uint256[] memory _tokenIds) external nonReentrant whenNotPaused userSelfOrDelegator(_forUser) { 
     function deposit(address _forUser, uint256[] memory _tokenIds) external nonReentrant userSelfOrDelegator(_forUser) { 
         _requireTokenIds(_tokenIds);
 
@@ -81,10 +70,7 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
             if(_exists(tokenId)){
                 require(ownerOf(tokenId) == address(this), "BaseWrappedNFT: tokenId owner error!");
                 _transfer(address(this), _forUser, tokenId);
-                //TODO 查查为什么不能用这个，也许应该也用下面safe这个？
-                // safeTransferFrom(address(this), _forUser, tokenId);
             }else{
-                //TODO 测试super和非super有啥区别，super的这种子类如果集成了这个_safeMint怎么办，可以用子类的么？
                 _safeMint(_forUser, tokenId);
             }
         }
@@ -102,12 +88,7 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
         for(uint256 i = 0; i < _wnftTokenIds.length; i ++){
             wnftTokenId = _wnftTokenIds[i];
             require(ownerOf(wnftTokenId) == _forUser, "BaseWrappedNFT: can not withdraw nft not owned!");
-            // _safeBurn(wnftTokenId);
             safeTransferFrom(_forUser, address(this), wnftTokenId);
-            //TODO test if needed
-            // if(nft.getApproved(wnftTokenId) != address(this)){
-            //     nft.approve(_forUser, wnftTokenId);
-            // }
             nft.safeTransferFrom(address(this), _forUser, wnftTokenId);
         }
 
@@ -136,26 +117,21 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
         return nft.tokenURI(_tokenId);
     }
     
-    /**
-     * @dev Returns whether `tokenId` exists.
-     *
-     * Tokens can be managed by their owner or approved accounts via {approve} or {setApprovalForAll}.
-     *
-     * Tokens start existing when they are minted (`_mint`),
-     * and stop existing when they are burned (`_burn`).
-     */
     function exists(uint256 _tokenId) external view returns (bool) {
         return _exists(_tokenId);
     }
 
+    /**
+     * @dev See {IERC721Receiver-onERC721Received}.
+     *
+     * Always returns `IERC721Receiver.onERC721Received.selector`.
+     */
     function onERC721Received (
         address,
         address,
         uint256,
         bytes calldata
     ) public virtual override returns (bytes4) {
-        //TODO 合约收到一个ERC721以后会调用的方法，如果有这个方法了，是不是可以收到以后自动给一个WNFT呢？
-        //TODO 这块可以检查，只收NFT和WNFT两个合约的NFT。
         return this.onERC721Received.selector;
     }
 
@@ -172,8 +148,8 @@ abstract contract BaseWrappedNFT is Ownable, ReentrancyGuard, ERC721, ERC2981, I
     }
 }
 
-//add total supply for etherscan get
 contract WrappedNFT is IWrappedNFT, BaseWrappedNFT {
+    //add total supply for etherscan
     uint256 private _totalSupply;
 
     constructor(
@@ -236,6 +212,21 @@ contract WrappedNFTEnumerable is IWrappedNFTEnumerable, WrappedNFT, ERC721Enumer
         return _interfaceId == type(IWrappedNFTEnumerable).interfaceId || WrappedNFT.supportsInterface(_interfaceId) || ERC721Enumerable.supportsInterface(_interfaceId);
     }
 
+    /**
+     * @dev Hook that is called before any token transfer. This includes minting
+     * and burning.
+     *
+     * Calling conditions:
+     *
+     * - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
+     * transferred to `to`.
+     * - When `from` is zero, `tokenId` will be minted for `to`.
+     * - When `to` is zero, ``from``'s `tokenId` will be burned.
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
     function _beforeTokenTransfer(
         address from,
         address to,
@@ -274,17 +265,16 @@ contract WrappedNFTEnumerable is IWrappedNFTEnumerable, WrappedNFT, ERC721Enumer
     }
 }
 
-//support deploy 2 WNFT: ERC721 and ERC721Enumerable implementation.
+//support deploy 2 WNFTs: ERC721 and ERC721Enumerable implementation.
 contract WrappedNFTFactory is IWrappedNFTFactory, Ownable, ReentrancyGuard {
-    address public wnftDelegator;   //NFTMasterChef Contract, used to deposit for withdraw for other user in WNFT.
+    address public wnftDelegator; //used to set the delegator in WrappedNFT.
 
-    mapping(IERC721Metadata => IWrappedNFT) public wnfts;
+    mapping(IERC721Metadata => IWrappedNFT) public wnfts; //all the deployed WrappedNFTs.
     uint256 public wnftsNumber;
 
     function deployWrappedNFT(IERC721Metadata _nft, bool _isEnumerable) external onlyOwner nonReentrant returns (IWrappedNFT _wnft) {
         require(address(_nft) != address(0), "WrappedNFTFactory: _nft can not be zero!");
         require(address(wnfts[_nft]) == address(0), "WrappedNFTFactory: wnft has been deployed!");
-        // require(bytes(_nft.name()).length > 0 && bytes(_nft.symbol()).length > 0, "WrappedNFT: name and symbol must not be empty!");
         if(_isEnumerable){
             _wnft = new WrappedNFTEnumerable(_nft);
         }else{
@@ -299,7 +289,7 @@ contract WrappedNFTFactory is IWrappedNFTFactory, Ownable, ReentrancyGuard {
         emit WrappedNFTDeployed(_nft, _wnft, _isEnumerable);
     }
     
-    //allow wnftDelegator to zero
+    //allow wnftDelegator to be zero
     function setWNFTDelegator(address _wnftDelegator) external onlyOwner nonReentrant {
         wnftDelegator = _wnftDelegator;
         emit WNFTDelegatorChanged(_wnftDelegator);
