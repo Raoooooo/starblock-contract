@@ -22,7 +22,7 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
     string private baseTokenURI;
 
     /* Proxy registry address. */
-    address public proxyRegistryAddress;
+    ProxyRegistry public proxyRegistry;
 
     using SafeERC20 for IERC20;
     IERC20 public tokenAddress;
@@ -32,23 +32,19 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
     string memory _name, 
     string memory _symbol,
     string memory _baseTokenURI,
-    address _proxyRegistryAddress
-    ) ERC721(_name, _symbol)  {
-        proxyRegistryAddress = _proxyRegistryAddress;
+    ProxyRegistry _proxyRegistry
+    ) ERC721(_name, _symbol) {
         baseTokenURI = _baseTokenURI;
+        proxyRegistry = _proxyRegistry;
     }
 
     // PROXY HELPER METHODS
-    function _isProxyForUser(address _user, address _address)
-        internal
-        view
-        returns (bool) {
-        return _proxy(_user) == _address;
+    function _isProxyForUser(address _user, address _address) internal view returns (bool) {
+        return address(_proxy(_user)) == _address;
     }
 
-    function _proxy(address _address) internal view returns (address) {
-        ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
-        return address(proxyRegistry.proxies(_address));
+    function _proxy(address _address) internal view returns (OwnableDelegateProxy) {
+        return proxyRegistry.proxies(_address);
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -59,8 +55,8 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
         baseTokenURI = _baseTokenURI;
     }
 
-    function setProxyRegistryAddress(address _address) public onlyOwner {
-        proxyRegistryAddress = _address;
+    function setProxyRegistry(ProxyRegistry _proxyRegistry) public onlyOwner {
+        proxyRegistry = _proxyRegistry;
     }
 
     function withdrawMoney() external onlyOwner nonReentrant {
