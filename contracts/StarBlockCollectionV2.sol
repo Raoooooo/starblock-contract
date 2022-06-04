@@ -17,28 +17,28 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract StarBlockCollectionV2 is ERC721Enumerable, Ownable, ReentrancyGuard {
+contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
 
-   string private _baseTokenURI;
+    string private baseTokenURI;
 
-   /* Proxy registry address. */
-   address public proxyRegistryAddress;
+    /* Proxy registry address. */
+    address public proxyRegistryAddress;
 
-   using SafeERC20 for IERC20;
-   IERC20 public tokenAddress;
-   uint256 public mintTokenAmount;
+    using SafeERC20 for IERC20;
+    IERC20 public tokenAddress;
+    uint256 public mintTokenAmount;
 
     constructor(
     string memory _name, 
     string memory _symbol,
-    string memory baseURI,
+    string memory _baseTokenURI,
     address _proxyRegistryAddress
     ) ERC721(_name, _symbol)  {
-         proxyRegistryAddress = _proxyRegistryAddress;
-         _baseTokenURI = baseURI;
+        proxyRegistryAddress = _proxyRegistryAddress;
+        baseTokenURI = _baseTokenURI;
     }
 
-      // PROXY HELPER METHODS
+    // PROXY HELPER METHODS
     function _isProxyForUser(address _user, address _address)
         internal
         view
@@ -52,53 +52,53 @@ contract StarBlockCollectionV2 is ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     function _baseURI() internal view override returns (string memory) {
-        return _baseTokenURI;
+        return baseTokenURI;
     }
 
-    function setBaseURI(string memory baseURI) public onlyOwner {
-        _baseTokenURI = baseURI;
+    function setBaseTokenURI(string memory _baseTokenURI) public onlyOwner {
+        baseTokenURI = _baseTokenURI;
     }
 
     function setProxyRegistryAddress(address _address) public onlyOwner {
         proxyRegistryAddress = _address;
-    }`
+    }
 
-     function withdrawMoney() external onlyOwner nonReentrant {
-         (payable(msg.sender)).transfer(address(this).balance);
+    function withdrawMoney() external onlyOwner nonReentrant {
+        (payable(msg.sender)).transfer(address(this).balance);
     }
 
     function publicMint(
         address _from,
         address _to,
-        uint256[] _tokenIds
+        uint256[] memory _tokenIds
     ) public {
-         require(
+        require(
             _isProxyForUser(_from, _msgSender()),
-            "StarBlockCollectionV2#mintAssets: caller is not approved"
+            "StarBlockCollectionV2#publicMint: caller is not approved"
         );
-        // _safeMint(_to, _tokenId);
-        // for () {
-
-        // }
-        safeTransferToken(_to, mintTokenAmount);
+        require(_tokenIds.length > 0, "StarBlockCollectionV2#publicMint: tokenIds is not empty");
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            _safeMint(_to, _tokenIds[i]);
+        }
+        _safeTransferToken(_to, mintTokenAmount * _tokenIds.length);
     }
 
-   function setTokenAddressAndMintTokenAmount(IERC20 tokenAddress_, uint256 mintTokenAmount_) external onlyOwner {
-        tokenAddress = tokenAddress_;
-        mintTokenAmount = mintTokenAmount_;
-   }
+    function setTokenAddressAndMintTokenAmount(IERC20 _tokenAddress, uint256 _mintTokenAmount) external onlyOwner {
+        tokenAddress = _tokenAddress;
+        mintTokenAmount = _mintTokenAmount;
+    }
 
-   function safeTransferToken(address to_, uint256 amount_) internal {
-      if(address(tokenAddress) != address(0) && amount_ > 0){
+    function _safeTransferToken(address _to, uint256 _amount) internal {
+        if(address(tokenAddress) != address(0) && _amount > 0){
         uint256 bal = tokenAddress.balanceOf(address(this));
         if(bal > 0) {
-            if (amount_ > bal) {
-                tokenAddress.transfer(to_, bal);
+            if (_amount > bal) {
+                tokenAddress.transfer(_to, bal);
             } else {
-                tokenAddress.transfer(to_, amount_);
+                tokenAddress.transfer(_to, _amount);
             }
         }
-      }
+        }
     }
 
     function withdrawToken() external onlyOwner {
