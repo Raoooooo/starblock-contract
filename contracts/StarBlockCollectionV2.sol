@@ -17,7 +17,7 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract StarBlockCollectionV2 is ERC721Enumerable, Ownable, ReentrancyGuard, Pausable {
+contract StarBlockCollectionV2 is ERC721Enumerable, Ownable, ReentrancyGuard {
 
    string private _baseTokenURI;
 
@@ -34,8 +34,8 @@ contract StarBlockCollectionV2 is ERC721Enumerable, Ownable, ReentrancyGuard, Pa
     string memory baseURI,
     address _proxyRegistryAddress
     ) ERC721(_name, _symbol)  {
-        proxyRegistryAddress = _proxyRegistryAddress;
-        _baseTokenURI = baseURI;
+         proxyRegistryAddress = _proxyRegistryAddress;
+         _baseTokenURI = baseURI;
     }
 
       // PROXY HELPER METHODS
@@ -61,30 +61,25 @@ contract StarBlockCollectionV2 is ERC721Enumerable, Ownable, ReentrancyGuard, Pa
 
     function setProxyRegistryAddress(address _address) public onlyOwner {
         proxyRegistryAddress = _address;
-    }
+    }`
 
      function withdrawMoney() external onlyOwner nonReentrant {
-      (payable(msg.sender)).transfer(address(this).balance);
-    }
-
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
+         (payable(msg.sender)).transfer(address(this).balance);
     }
 
     function publicMint(
         address _from,
         address _to,
-        uint256 _tokenId
-    ) public whenNotPaused {
+        uint256[] _tokenIds
+    ) public {
          require(
             _isProxyForUser(_from, _msgSender()),
             "StarBlockCollectionV2#mintAssets: caller is not approved"
         );
-        _safeMint(_to, _tokenId);
+        // _safeMint(_to, _tokenId);
+        // for () {
+
+        // }
         safeTransferToken(_to, mintTokenAmount);
     }
 
