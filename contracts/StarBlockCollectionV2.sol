@@ -29,78 +29,77 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint256 public mintTokenAmount;
 
     constructor(
-    string memory _name, 
-    string memory _symbol,
-    string memory _baseTokenURI,
-    ProxyRegistry _proxyRegistry
+      string memory _name, 
+      string memory _symbol,
+      string memory _baseTokenURI,
+      ProxyRegistry _proxyRegistry
     ) ERC721(_name, _symbol) {
-        baseTokenURI = _baseTokenURI;
-        proxyRegistry = _proxyRegistry;
+      baseTokenURI = _baseTokenURI;
+      proxyRegistry = _proxyRegistry;
     }
 
     // PROXY HELPER METHODS
     function _isProxyForUser(address _user, address _address) internal view returns (bool) {
-        return address(_proxy(_user)) == _address;
+      return address(_proxy(_user)) == _address;
     }
 
     function _proxy(address _address) internal view returns (OwnableDelegateProxy) {
-        return proxyRegistry.proxies(_address);
+      return proxyRegistry.proxies(_address);
     }
 
     function _baseURI() internal view override returns (string memory) {
-        return baseTokenURI;
+      return baseTokenURI;
     }
 
     function setBaseTokenURI(string memory _baseTokenURI) external onlyOwner {
-        baseTokenURI = _baseTokenURI;
+      baseTokenURI = _baseTokenURI;
     }
 
     function setProxyRegistry(ProxyRegistry _proxyRegistry) external onlyOwner {
-        proxyRegistry = _proxyRegistry;
+      proxyRegistry = _proxyRegistry;
     }
 
     function withdrawMoney() external onlyOwner nonReentrant {
-        (payable(msg.sender)).transfer(address(this).balance);
+      (payable(msg.sender)).transfer(address(this).balance);
     }
 
     function publicMint(
-        address _from,
-        address _to,
-        uint256[] memory _tokenIds
+      address _from,
+      address _to,
+      uint256[] memory _tokenIds
     ) external nonReentrant {
-        require(
-            _isProxyForUser(_from, _msgSender()),
-            "StarBlockCollectionV2#publicMint: caller is not approved"
-        );
-        require(_tokenIds.length > 0, "StarBlockCollectionV2#publicMint: tokenIds is not empty");
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            _safeMint(_to, _tokenIds[i]);
-        }
-        _safeTransferToken(_to, mintTokenAmount * _tokenIds.length);
+      require(
+        _isProxyForUser(_from, _msgSender()), "StarBlockCollection#publicMint: caller is not approved"
+      );
+      require(_tokenIds.length > 0, "StarBlockCollection#publicMint: tokenIds is empty");
+      for (uint256 i = 0; i < _tokenIds.length; i++) {
+        _safeMint(_to, _tokenIds[i]);
+      }
+      _safeTransferToken(_to, mintTokenAmount * _tokenIds.length);
     }
 
     function setTokenAddressAndMintTokenAmount(IERC20 _tokenAddress, uint256 _mintTokenAmount) external onlyOwner {
-        tokenAddress = _tokenAddress;
-        mintTokenAmount = _mintTokenAmount;
+      tokenAddress = _tokenAddress;
+      mintTokenAmount = _mintTokenAmount;
     }
 
     function _safeTransferToken(address _to, uint256 _amount) internal {
-        if(address(tokenAddress) != address(0) && _amount > 0){
+      if(address(tokenAddress) != address(0) && _amount > 0){
         uint256 bal = tokenAddress.balanceOf(address(this));
         if(bal > 0) {
             if (_amount > bal) {
-                tokenAddress.transfer(_to, bal);
+              tokenAddress.transfer(_to, bal);
             } else {
-                tokenAddress.transfer(_to, _amount);
+              tokenAddress.transfer(_to, _amount);
             }
         }
-        }
+      }
     }
 
     function withdrawToken() external onlyOwner nonReentrant {
-        uint256 bal = tokenAddress.balanceOf(address(this));
-        if(bal > 0) {
-            tokenAddress.transfer(msg.sender, bal);
-        }
+      uint256 bal = tokenAddress.balanceOf(address(this));
+      if(bal > 0) {
+          tokenAddress.transfer(msg.sender, bal);
+      }
     }
 }
