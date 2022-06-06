@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
+// StarBlock NFT Marketplace Contract
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -18,13 +18,13 @@ contract ProxyRegistry {
 }
 
 contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
-
+    using SafeERC20 for IERC20;
+    
     string private baseTokenURI;
 
     /* Proxy registry address. */
     ProxyRegistry public proxyRegistry;
-
-    using SafeERC20 for IERC20;
+    
     IERC20 public tokenAddress;
     uint256 public mintTokenAmount;
 
@@ -51,11 +51,11 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
         return baseTokenURI;
     }
 
-    function setBaseTokenURI(string memory _baseTokenURI) public onlyOwner {
+    function setBaseTokenURI(string memory _baseTokenURI) external onlyOwner {
         baseTokenURI = _baseTokenURI;
     }
 
-    function setProxyRegistry(ProxyRegistry _proxyRegistry) public onlyOwner {
+    function setProxyRegistry(ProxyRegistry _proxyRegistry) external onlyOwner {
         proxyRegistry = _proxyRegistry;
     }
 
@@ -67,7 +67,7 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
         address _from,
         address _to,
         uint256[] memory _tokenIds
-    ) public {
+    ) external nonReentrant {
         require(
             _isProxyForUser(_from, _msgSender()),
             "StarBlockCollectionV2#publicMint: caller is not approved"
@@ -97,11 +97,10 @@ contract StarBlockCollection is ERC721Enumerable, Ownable, ReentrancyGuard {
         }
     }
 
-    function withdrawToken() external onlyOwner {
+    function withdrawToken() external onlyOwner nonReentrant {
         uint256 bal = tokenAddress.balanceOf(address(this));
         if(bal > 0) {
             tokenAddress.transfer(msg.sender, bal);
         }
     }
-
 }
